@@ -8,11 +8,15 @@ Platforms
 Libraries
 - ezk_platform - identifies the current platform - Currently working on
 - ezk_window - opens a window - DEPENDS ON - ezk_platform
+- ezk_stdout - manages console input and output
 - ezk_gl - loads openGL and binds it to windows - DEPENDS ON - ezk_window
 - ezk_dx - loads DX on windows machines and binds it to windows - DEPENDS ON - ezk_window
 - ezk_gfx - manages graphics libaries and builtin shaders - DEPENDS_ON - ezk_gl, ezk_dx
 - ezk_shader - manages loading and applying shaders in hlsl and glsl - DEPENDS_ON - ezk_gfx
 - ezk_ecs - manages objects and systems
-- ezk_audio - manages audio
+- ezk_file - manages file loading and encryption - DEPENDS ON - ezk_platform
+- ezk_image - manages image loading - DEPENDS ON - ezk_file
+- ezk_audio - manages audio - DEPENDS ON - ezk_file
 - ezk_input - manages input e.g. axis - DEPENDS ON - ezk_window
-- ezk_output - manages output e.g peripherals 
+- ezk_output - manages output e.g peripherals - DEPENDS_ON - ezk_platform
+- ezk_video - manages streaming video from storage - DEPENDS ON - ezk_file
