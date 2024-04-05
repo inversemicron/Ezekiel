@@ -21,6 +21,10 @@
 	#define EZK_OSX
 #endif
 
+#if defined(EZK_BSD) || defined(EZK_LINUX)
+#define EZK_UNIX // Unix like systems
+#endif
+
 // Determining architecture
 #if defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__) || defined(_M_ARM64)
 	#define EZK_ARCH 64
@@ -30,6 +34,14 @@
 	#define EZK_ARCH 0xffffffffffffffff // infinite bits - there is probably a better way to do this
 #endif
 
+// Determine window system
+#if defined(EZK_UNIX)
+	#define EZK_X11
+#elif defined(EZK_WINDOWS) && EZK_ARCH >= 32 // as stated earlier, 16 bit windows is not desirable (Win 3.1 or earlier)
+	#define EZK_WIN32API
+#elif defined (EZK_OSX)
+	#define EZK_COCOA
+#endif
 
 #endif // EZK_PLATFORM_INCLUDED
 
