@@ -1,4 +1,4 @@
-#include "ezk_window.h"
+#include "../ezk_window.h"
 
 int main() {
 
