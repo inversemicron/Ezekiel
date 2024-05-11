@@ -21,3 +21,5 @@ Libraries
 - ezk_web - manages web requests
 - ezk_output - manages output e.g peripherals
 - ezk_video - manages streaming video from storage - DEPENDS ON - ezk_file
+
+we gon try and shove this into one giga file for fun

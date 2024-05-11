@@ -5,6 +5,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+#include <math.h>
 
 // Determine window system to use
 #if defined(_WIN32) || defined(_WIN64)
@@ -38,11 +41,6 @@
 
 // Macros
 
-#ifndef EZK_ASSERT
-	#include <assert.h> 
-	#define EZK_ASSERT(x) assert(x)  
-#endif
-
 #define EZK_DEF_WINDOW_HEIGHT 600
 #define EZK_DEF_WINDOW_WIDTH 800
 
@@ -57,6 +55,40 @@
 #endif
 
 // Declarations
+
+// Logger
+#ifndef EZK_LOGGER
+#define EZK_LOGGER // include guard
+                   //
+#ifndef EZK_LOG_LEVEL // max log level
+  #if defined(EZK_PEDANTIC)
+    #define 2 // info
+  #elif defined(EZK_DEBUG)
+    #define 0xffff // all the messages
+  #endif
+
+#define EZK_LOG_LEVELS \
+  _EZK_LOGLEVEL_XMACRO(0, "ERROR") \
+  _EZK_LOGLEVEL_XMACRO(1, "WARN") \
+  _EZK_LOGLEVEL_XMACRO(2, "INFO") \
+  _EZK_LOGLEVEL_XMACRO
+
+#define EZK_LOGLEVEL_XMACRO
+
+#define _EZK_LOG_ITEMS \
+  _EZK_LOGGER_XMACRO(NO_NATIVE_FBCONFIGS_FOUND, "No native framebuffer configurations found.", 0) \
+  _EZK_LOGGER_XMACRO(NO_USABLE_FBCONFIGS_FOUND, "No usable framebuffer configurations found.", 0)
+#endif // EZK_LOGGER
+
+#define EZK_LOGITEM_XMACRO(item, msg, lvl) EZK_LOGITEM_##item
+
+typedef enum ezk_logitem {
+  EZK_LOG_ITEMS
+} ezk_logitem;
+
+#undef EZK_LOGITEM_XMACRO
+#endif
+// Events
 
 typedef enum {
 	EZK_EVTYPE_KEY_DOWN,
@@ -100,7 +132,9 @@ typedef struct {
 	ezkwin_event_type type;
 	int keycode;
 } ezkwin_event;
-
+#ifdef EZK_GL 
+  
+#endif
 // X11 
 #ifdef EZK_X11
 typedef struct {
@@ -112,6 +146,22 @@ typedef struct {
 
 	Colormap colormap;
 } ezkwin_x11_inst;
+#endif
+
+#ifdef EZK_GL 
+  typedef struct ezk_gl_fbconfig {
+    uint8_t red_bits, 
+            blue_bits,
+            green_bits,
+            alpha_bits,
+            depth_bits,
+            stencil_bits,
+            samples;
+    int id;
+
+    bool doublebuffer;
+    uintptr_t handle;
+  } ezk_gl_fbconfig;
 
 #ifdef EZK_GLX
 typedef struct {
@@ -123,7 +173,7 @@ typedef struct {
 #endif // EZK_GLX
 #endif
 
-typedef struct _ezkwin {
+typedef struct {
 	int width;
 	int height;
 	int fullscreen;
@@ -144,8 +194,62 @@ EZK_API_DECL void ezkwin_run();
 
 #ifdef EZK_X11
 
+#ifdef EZK_GL
+  _EZK_PRIVATE void ezk_gl_print_fbconfig(ezk_gl_fbconfig f) {
+    printf("## FRAMEBUFFER CONFIG %d\n", f.id);
+    printf("## Red bits: %d\n", f.red_bits);
+    printf("## Green bits: %d\n", f.blue_bits);    
+    printf("## Blue bits: %d\n", f.green_bits);
+    printf("## Alpha bits: %d\n", f.alpha_bits);
+    printf("## Depth bits: %d\n", f.depth_bits);
+    printf("## Stencil bits: %d\n", f.stencil_bits);
+    printf("## Samples: %d\n", f.samples);
+    printf("## Doublebuffer: %s\n", f.doublebuffer ? "Yes" : "No");
+  }
+
+  _EZK_PRIVATE double ezk_gl_eval_fbconfig(ezk_gl_fbconfig d, ezk_gl_fbconfig e) { // desired fb config, config to eval
+    register int red_err = (d.red_bits - e.red_bits);
+    register int green_err = (d.green_bits - e.green_bits);
+    register int blue_err = (d.blue_bits - e.blue_bits);
+    register int alpha_err = (d.alpha_bits - e.alpha_bits);
+    register int depth_err = (d.depth_bits - e.depth_bits);
+    register int stencil_err = (d.stencil_bits - e.stencil_bits);
+    register int sample_err = (d.samples - e.samples);
+    register int doublebuffer_err = d.doublebuffer ? (e.doublebuffer ? 100 : 0) : (e.doublebuffer ? 0 : 100);
+
+    return sqrt(abs( // the abs is here temporarily to prevent sqrt of negative number
+          (red_err * red_err) +
+          (green_err * green_err) +
+          (blue_err * blue_err) +
+          (alpha_err * alpha_err) +
+          (depth_err * depth_err) +
+          (stencil_err * stencil_err) +
+          (sample_err * sample_err) +
+          (doublebuffer_err)) // already accounted for squaring doublebuffer  
+        );
+  }
+
+  _EZK_PRIVATE ezk_gl_fbconfig ezk_gl_select_fbconfig(ezk_gl_fbconfig desired, ezk_gl_fbconfig* usable, int count) {
+      ezk_gl_fbconfig best_fbconfig;
+      double lowest_score = 0xffffffff; 
+      for(int i = 0; i < count; i++) {
+        double score = ezk_gl_eval_fbconfig(desired, usable[i]);
+        if(score < lowest_score) {
+          lowest_score = score;
+          best_fbconfig = usable[i];
+        }
+      }
+      return best_fbconfig; 
+  }
+
 #ifdef EZK_GLX
-	_EZK_PRIVATE void ezkwin_glx_init() {
+  _EZK_PRIVATE int ezk_glx_attrib(GLXFBConfig c, int a) {
+    int value;
+    glXGetFBConfigAttrib(_ezkwin.x11.display, c, a, &value);
+    return value;
+  }  
+
+	_EZK_PRIVATE void ezk_glx_init() {
 		glXQueryVersion(_ezkwin.x11.display, &_ezkwin.glx.vMajor, &_ezkwin.glx.vMinor);
 		if (_ezkwin.glx.vMajor <= 1 && _ezkwin.glx.vMinor <= 2) {
 			printf("GLX 1.2 or earlier is not supported\n");
@@ -153,16 +257,77 @@ EZK_API_DECL void ezkwin_run();
 		}
 	}
 	
-	_EZK_PRIVATE void ezkwin_glx_choose_fbconfig() {
+  _EZK_PRIVATE ezk_gl_fbconfig ezk_glx_choose_fbconfig() {
+      GLXFBConfig* nativeConfigs;
+      ezk_gl_fbconfig* usableConfigs;
+      int nativeConfigCount;
+      int usableConfigCount = 0;
+      
+      nativeConfigs = glXGetFBConfigs(_ezkwin.x11.display, _ezkwin.x11.screenId, &nativeConfigCount);
+      
+      usableConfigs = malloc(sizeof(ezk_gl_fbconfig) * nativeConfigCount);
+      memset(usableConfigs, 0, sizeof(ezk_gl_fbconfig) * nativeConfigCount);
+      
+      for(int i = 0; i < nativeConfigCount; i++) {
+        const GLXFBConfig h = nativeConfigs[i];
+        ezk_gl_fbconfig* t = usableConfigs + usableConfigCount;
+        usableConfigCount++;
+        
+        if ((ezk_glx_attrib(h, GLX_RENDER_TYPE) & GLX_RGBA_BIT) == 0) {
+          continue; // TODO: support CLUTs
+        }
 
+        if ((ezk_glx_attrib(h, GLX_DRAWABLE_TYPE) & GLX_WINDOW_BIT) == 0) {
+          continue; // TODO: support PBUFFERs and PIXMAPs for RTT
+        }
+
+        t->id = ezk_glx_attrib(h, GLX_FBCONFIG_ID);
+
+        t->red_bits = ezk_glx_attrib(h, GLX_RED_SIZE);
+        t->green_bits = ezk_glx_attrib(h, GLX_GREEN_SIZE);
+        t->blue_bits = ezk_glx_attrib(h, GLX_BLUE_SIZE);        
+        t->alpha_bits = ezk_glx_attrib(h, GLX_ALPHA_SIZE);
+        t->depth_bits = ezk_glx_attrib(h, GLX_DEPTH_SIZE);
+        t->stencil_bits = ezk_glx_attrib(h, GLX_STENCIL_SIZE);
+
+        // TODO: add in support for extensions, for now just pray that ARB multisampling is enabled. (for no reason)
+        t->samples = ezk_glx_attrib(h, GLX_SAMPLES);
+
+        t->doublebuffer = ezk_glx_attrib(h, GLX_DOUBLEBUFFER);
+
+        if(t->doublebuffer) {
+          //ezk_gl_print_fbconfig(*t);        
+        }
+        // TODO: add in support for stereo rendering if we want to make VR games
+        // TODO: add in support for auxilliary buffers, to store more stencil values or depth bits
+
+        t->handle = (uintptr_t) h; 
+      }
+
+      // Now this returns quite a few framebuffer configs, so now we need to select one!
+      ezk_gl_fbconfig desired;
+
+      desired.red_bits = 8;
+      desired.green_bits = 8;
+      desired.blue_bits = 8;
+      desired.alpha_bits = 8;
+      desired.depth_bits = 24;
+      desired.stencil_bits = 8;
+      desired.samples = 2; // TODO: allow the developer to specify a number of samples
+      ezk_gl_fbconfig chosen = ezk_gl_select_fbconfig(desired, usableConfigs, usableConfigCount);
+
+      ezk_gl_print_fbconfig(desired);
+      ezk_gl_print_fbconfig(chosen);
+      printf("%d\n", ezk_gl_eval_fbconfig(desired, chosen));
 	}
 
-	_EZK_PRIVATE void ezkwin_glx_choose_visual() {
-
+	_EZK_PRIVATE void ezk_glx_choose_visual() {
+    ezk_glx_choose_fbconfig();
 	}
-#endif
+#endif // EZK_GLX
+#endif // EZK_GL
 
-_EZK_PRIVATE void ezkwin_x11_create_window() {
+_EZK_PRIVATE void ezk_x11_create_window() {
 	_ezkwin.x11.window = XCreateSimpleWindow( // yeah this needs work
 		_ezkwin.x11.display, 
 		RootWindow(_ezkwin.x11.display, _ezkwin.x11.screenId), 
@@ -173,11 +338,11 @@ _EZK_PRIVATE void ezkwin_x11_create_window() {
 		WhitePixel(_ezkwin.x11.display, _ezkwin.x11.screenId));
 }
 
-_EZK_PRIVATE void ezkwin_x11_show_window() {
+_EZK_PRIVATE void ezk_x11_show_window() {
 	XMapWindow(_ezkwin.x11.display, _ezkwin.x11.window);	
 }
 
-_EZK_PRIVATE void ezkwin_x11_run() { 	
+_EZK_PRIVATE void ezk_x11_run() {	
 	XEvent ev; // temporary
 
 	_ezkwin.x11.display = XOpenDisplay(NULL); // TODO: Add in support for various displays
@@ -186,17 +351,19 @@ _EZK_PRIVATE void ezkwin_x11_run() {
 	}
 
 	_ezkwin.x11.screen = DefaultScreenOfDisplay(_ezkwin.x11.display); // TODO: add in support for multiple screens
+									                                                  // X11 tends to assign multiple monitors to 
+									                                                  // one screen so this might not be necessary 
 	_ezkwin.x11.screenId = DefaultScreen(_ezkwin.x11.display);
 	
 #ifdef EZK_GLX
-	ezkwin_glx_init();
-	ezkwin_glx_choose_fbconfig();
-	ezkwin_glx_choose_visual();	
+	ezk_glx_init();
+  XVisualInfo* visual;
+	ezk_glx_choose_visual();	
 #endif
 
-	ezkwin_x11_create_window();
+	ezk_x11_create_window();
 	
-	ezkwin_x11_show_window();
+	ezk_x11_show_window();
 
 	while (true) {
 		if(XPending(_ezkwin.x11.display) > 0) {
@@ -220,7 +387,7 @@ _EZK_PRIVATE void ezkwin_init_inst() {
 EZK_API_IMPL void ezkwin_run() {
 	ezkwin_init_inst();
 #ifdef EZK_X11
-	ezkwin_x11_run();
+	ezk_x11_run();
 #endif
 }
 
