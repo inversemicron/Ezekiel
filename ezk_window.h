@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 // Determine window system to use
 #if defined(_WIN32) || defined(_WIN64)
@@ -136,17 +137,6 @@ typedef struct {
   
 #endif
 // X11 
-#ifdef EZK_X11
-typedef struct {
-	Display* display;
-	Window window;
-	Screen* screen;
-	int screenId;
-	Window root;
-
-	Colormap colormap;
-} ezkwin_x11_inst;
-#endif
 
 #ifdef EZK_GL 
   typedef struct ezk_gl_fbconfig {
@@ -160,7 +150,7 @@ typedef struct {
     int id;
 
     bool doublebuffer;
-    uintptr_t handle;
+    GLXFBConfig handle;
   } ezk_gl_fbconfig;
 
 #ifdef EZK_GLX
@@ -171,6 +161,22 @@ typedef struct {
 	GLXContext ctx;
 } ezkwin_glx_inst;
 #endif // EZK_GLX
+#endif
+
+#ifdef EZK_X11
+typedef struct {
+	Display* display;
+	Window window;
+	Screen* screen;
+	int screenId;
+	Window root;
+
+  ezk_gl_fbconfig fbc;
+  XVisualInfo* visual;
+
+  XSetWindowAttributes win_attribs; // TODO: centralise window attributes into ezk_window_attribs
+	Colormap colormap;
+} ezkwin_x11_inst;
 #endif
 
 typedef struct {
@@ -215,9 +221,9 @@ EZK_API_DECL void ezkwin_run();
     register int depth_err = (d.depth_bits - e.depth_bits);
     register int stencil_err = (d.stencil_bits - e.stencil_bits);
     register int sample_err = (d.samples - e.samples);
-    register int doublebuffer_err = d.doublebuffer ? (e.doublebuffer ? 100 : 0) : (e.doublebuffer ? 0 : 100);
+    register int doublebuffer_err = d.doublebuffer ? (e.doublebuffer ? 0 : 100) : (e.doublebuffer ? 100 : 0);
 
-    return sqrt(abs( // the abs is here temporarily to prevent sqrt of negative number
+    double return_value = sqrt(
           (red_err * red_err) +
           (green_err * green_err) +
           (blue_err * blue_err) +
@@ -225,8 +231,9 @@ EZK_API_DECL void ezkwin_run();
           (depth_err * depth_err) +
           (stencil_err * stencil_err) +
           (sample_err * sample_err) +
-          (doublebuffer_err)) // already accounted for squaring doublebuffer  
+          (doublebuffer_err) // already accounted for squaring doublebuffer  
         );
+    return return_value;
   }
 
   _EZK_PRIVATE ezk_gl_fbconfig ezk_gl_select_fbconfig(ezk_gl_fbconfig desired, ezk_gl_fbconfig* usable, int count) {
@@ -295,13 +302,10 @@ EZK_API_DECL void ezkwin_run();
 
         t->doublebuffer = ezk_glx_attrib(h, GLX_DOUBLEBUFFER);
 
-        if(t->doublebuffer) {
-          //ezk_gl_print_fbconfig(*t);        
-        }
         // TODO: add in support for stereo rendering if we want to make VR games
         // TODO: add in support for auxilliary buffers, to store more stencil values or depth bits
 
-        t->handle = (uintptr_t) h; 
+        t->handle = h; 
       }
 
       // Now this returns quite a few framebuffer configs, so now we need to select one!
@@ -313,30 +317,41 @@ EZK_API_DECL void ezkwin_run();
       desired.alpha_bits = 8;
       desired.depth_bits = 24;
       desired.stencil_bits = 8;
-      desired.samples = 2; // TODO: allow the developer to specify a number of samples
-      ezk_gl_fbconfig chosen = ezk_gl_select_fbconfig(desired, usableConfigs, usableConfigCount);
+      desired.samples = 8; // TODO: allow the developer to specify a number of samples (actually everything)
+      desired.doublebuffer = true;
 
-      ezk_gl_print_fbconfig(desired);
-      ezk_gl_print_fbconfig(chosen);
-      printf("%d\n", ezk_gl_eval_fbconfig(desired, chosen));
+      ezk_gl_fbconfig chosen = ezk_gl_select_fbconfig(desired, usableConfigs, usableConfigCount);
+      
+      free(nativeConfigs);
+      free(usableConfigs);
+      //ezk_gl_print_fbconfig(desired);
+      //ezk_gl_print_fbconfig(chosen);
+      //printf("Difference: %d\n", ezk_gl_eval_fbconfig(desired, chosen));
+
+      return chosen; 
 	}
 
-	_EZK_PRIVATE void ezk_glx_choose_visual() {
-    ezk_glx_choose_fbconfig();
+	_EZK_PRIVATE void ezk_glx_choose_visual(ezk_gl_fbconfig *fbc, XVisualInfo **v) {
+    *fbc = ezk_glx_choose_fbconfig();
+
+    *v = glXGetVisualFromFBConfig(_ezkwin.x11.display, fbc->handle);
 	}
 #endif // EZK_GLX
 #endif // EZK_GL
 
 _EZK_PRIVATE void ezk_x11_create_window() {
-	_ezkwin.x11.window = XCreateSimpleWindow( // yeah this needs work
-		_ezkwin.x11.display, 
-		RootWindow(_ezkwin.x11.display, _ezkwin.x11.screenId), 
-		0, 0, 
+	_ezkwin.x11.window = XCreateWindow( 
+    _ezkwin.x11.display, 
+		_ezkwin.x11.root, 
+		0, 0, // window position
 		_ezkwin.width, _ezkwin.height,
-		2,
-		BlackPixel(_ezkwin.x11.display, _ezkwin.x11.screenId),
-		WhitePixel(_ezkwin.x11.display, _ezkwin.x11.screenId));
-}
+		0, // border width
+	  _ezkwin.x11.visual->depth,
+    InputOutput,
+    _ezkwin.x11.visual->visual,
+		CWBackPixel | CWColormap | CWBorderPixel | CWEventMask,
+    &_ezkwin.x11.win_attribs);
+} 
 
 _EZK_PRIVATE void ezk_x11_show_window() {
 	XMapWindow(_ezkwin.x11.display, _ezkwin.x11.window);	
@@ -351,25 +366,40 @@ _EZK_PRIVATE void ezk_x11_run() {
 	}
 
 	_ezkwin.x11.screen = DefaultScreenOfDisplay(_ezkwin.x11.display); // TODO: add in support for multiple screens
-									                                                  // X11 tends to assign multiple monitors to 
+                                                                    // X11 tends to assign multiple monitors to 
 									                                                  // one screen so this might not be necessary 
 	_ezkwin.x11.screenId = DefaultScreen(_ezkwin.x11.display);
+  _ezkwin.x11.root = RootWindow(_ezkwin.x11.display, _ezkwin.x11.screenId);
 	
 #ifdef EZK_GLX
 	ezk_glx_init();
-  XVisualInfo* visual;
-	ezk_glx_choose_visual();	
+
+	ezk_glx_choose_visual(&_ezkwin.x11.fbc, &_ezkwin.x11.visual);	
 #endif
+  
+  // Setup window attributes
+	_ezkwin.x11.win_attribs.border_pixel = BlackPixel(_ezkwin.x11.display, _ezkwin.x11.screenId);
+  _ezkwin.x11.win_attribs.background_pixel = WhitePixel(_ezkwin.x11.display, _ezkwin.x11.screenId);
+	_ezkwin.x11.win_attribs.override_redirect = True;
+	_ezkwin.x11.win_attribs.colormap = XCreateColormap(_ezkwin.x11.display, _ezkwin.x11.root, 
+                                                     _ezkwin.x11.visual->visual, AllocNone);
+	_ezkwin.x11.win_attribs.event_mask = ExposureMask;
 
 	ezk_x11_create_window();
 	
 	ezk_x11_show_window();
 
-	while (true) {
-		if(XPending(_ezkwin.x11.display) > 0) {
-			XNextEvent(_ezkwin.x11.display, &ev);
-		}
-	}
+  while (!_ezkwin.quit) {
+    if(XPending(_ezkwin.x11.display) > 0) {
+      XNextEvent(_ezkwin.x11.display, &ev);
+      // Process the event here
+    } else {
+      struct timespec sleep_time;
+      sleep_time.tv_sec = 0;
+      sleep_time.tv_nsec = 1000000; // Sleep for 10 milliseconds
+      nanosleep(&sleep_time, NULL); // This is to prevent busy waiting, TODO: change to allow various polling rates
+    }
+  }
 }
 
 
