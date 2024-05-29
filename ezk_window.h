@@ -42,8 +42,13 @@
 
 // Macros
 
-#define EZK_DEF_WINDOW_HEIGHT 600
-#define EZK_DEF_WINDOW_WIDTH 800
+// this is going to end up being a macro monster, sorry NASA :(
+#ifndef EZK_DEF_WIN_HEIGHT
+#define EZK_DEF_WIN_HEIGHT 600
+#endif
+#ifndef EZK_DEF_WIN_WIDTH 
+#define EZK_DEF_WIN_WIDTH 800
+#endif
 
 #ifndef _EZK_PRIVATE
 	#define _EZK_PRIVATE static
@@ -57,40 +62,9 @@
 
 // Declarations
 
-// Logger
-#ifndef EZK_LOGGER
-#define EZK_LOGGER // include guard
-                   //
-#ifndef EZK_LOG_LEVEL // max log level
-  #if defined(EZK_PEDANTIC)
-    #define 2 // info
-  #elif defined(EZK_DEBUG)
-    #define 0xffff // all the messages
-  #endif
+#ifdef EZK_WIN
 
-#define EZK_LOG_LEVELS \
-  _EZK_LOGLEVEL_XMACRO(0, "ERROR") \
-  _EZK_LOGLEVEL_XMACRO(1, "WARN") \
-  _EZK_LOGLEVEL_XMACRO(2, "INFO") \
-  _EZK_LOGLEVEL_XMACRO
-
-#define EZK_LOGLEVEL_XMACRO
-
-#define _EZK_LOG_ITEMS \
-  _EZK_LOGGER_XMACRO(NO_NATIVE_FBCONFIGS_FOUND, "No native framebuffer configurations found.", 0) \
-  _EZK_LOGGER_XMACRO(NO_USABLE_FBCONFIGS_FOUND, "No usable framebuffer configurations found.", 0)
-#endif // EZK_LOGGER
-
-#define EZK_LOGITEM_XMACRO(item, msg, lvl) EZK_LOGITEM_##item
-
-typedef enum ezk_logitem {
-  EZK_LOG_ITEMS
-} ezk_logitem;
-
-#undef EZK_LOGITEM_XMACRO
-#endif
 // Events
-
 typedef enum {
 	EZK_EVTYPE_KEY_DOWN,
 	EZK_EVTYPE_KEY_UP,
@@ -139,19 +113,19 @@ typedef struct {
 // X11 
 
 #ifdef EZK_GL 
-  typedef struct ezk_gl_fbconfig {
-    uint8_t red_bits, 
-            blue_bits,
+  typedef struct {
+    int id;
+    uint8_t red_bits,
             green_bits,
+            blue_bits,
             alpha_bits,
             depth_bits,
             stencil_bits,
             samples;
-    int id;
-
     bool doublebuffer;
+
     GLXFBConfig handle;
-  } ezk_gl_fbconfig;
+  } ezk_gl_fbconfig  ;
 
 #ifdef EZK_GLX
 typedef struct {
@@ -194,13 +168,32 @@ typedef struct {
 #endif
 } ezk_window_instance;
 
-static ezk_window_instance _ezkwin; // TODO: change to allow multiple instances
+#endif // EZK_WIN
 
-EZK_API_DECL void ezkwin_run();
+typedef struct {
+#ifdef EZK_WIN
+  ezk_window_instance** windows;
+ 
+#ifndef EZK_16_BIT_WIN_IDS
+  uint8_t window_count;
+#else
+  uint16_t window_count;
+#endif
+  
+#endif // EZK_WIN
 
-#ifdef EZK_X11
+} ezk_instance;
 
+static ezk_window_instance* _ezkwin; // current window
+static ezk_instance _ezk;
+
+#ifdef EZK_WIN
+EZK_API_DECL int ezk_init_window();
+#endif
+
+#ifdef EZK_WIN
 #ifdef EZK_GL
+
   _EZK_PRIVATE void ezk_gl_print_fbconfig(ezk_gl_fbconfig f) {
     printf("## FRAMEBUFFER CONFIG %d\n", f.id);
     printf("## Red bits: %d\n", f.red_bits);
@@ -252,13 +245,13 @@ EZK_API_DECL void ezkwin_run();
 #ifdef EZK_GLX
   _EZK_PRIVATE int ezk_glx_attrib(GLXFBConfig c, int a) {
     int value;
-    glXGetFBConfigAttrib(_ezkwin.x11.display, c, a, &value);
+    glXGetFBConfigAttrib(_ezkwin->x11.display, c, a, &value);
     return value;
   }  
 
 	_EZK_PRIVATE void ezk_glx_init() {
-		glXQueryVersion(_ezkwin.x11.display, &_ezkwin.glx.vMajor, &_ezkwin.glx.vMinor);
-		if (_ezkwin.glx.vMajor <= 1 && _ezkwin.glx.vMinor <= 2) {
+		glXQueryVersion(_ezkwin->x11.display, &_ezkwin->glx.vMajor, &_ezkwin->glx.vMinor);
+		if (_ezkwin->glx.vMajor <= 1 && _ezkwin->glx.vMinor <= 2) {
 			printf("GLX 1.2 or earlier is not supported\n");
 			abort();
 		}
@@ -267,10 +260,10 @@ EZK_API_DECL void ezkwin_run();
   _EZK_PRIVATE ezk_gl_fbconfig ezk_glx_choose_fbconfig() {
       GLXFBConfig* nativeConfigs;
       ezk_gl_fbconfig* usableConfigs;
-      int nativeConfigCount;
+      int nativeConfigCount = 0;
       int usableConfigCount = 0;
       
-      nativeConfigs = glXGetFBConfigs(_ezkwin.x11.display, _ezkwin.x11.screenId, &nativeConfigCount);
+      nativeConfigs = glXGetFBConfigs(_ezkwin->x11.display, _ezkwin->x11.screenId, &nativeConfigCount);
       
       usableConfigs = malloc(sizeof(ezk_gl_fbconfig) * nativeConfigCount);
       memset(usableConfigs, 0, sizeof(ezk_gl_fbconfig) * nativeConfigCount);
@@ -334,64 +327,65 @@ EZK_API_DECL void ezkwin_run();
 	_EZK_PRIVATE void ezk_glx_choose_visual(ezk_gl_fbconfig *fbc, XVisualInfo **v) {
     *fbc = ezk_glx_choose_fbconfig();
 
-    *v = glXGetVisualFromFBConfig(_ezkwin.x11.display, fbc->handle);
+    *v = glXGetVisualFromFBConfig(_ezkwin->x11.display, fbc->handle);
 	}
 #endif // EZK_GLX
 #endif // EZK_GL
 
+#ifdef EZK_X11
+
 _EZK_PRIVATE void ezk_x11_create_window() {
-	_ezkwin.x11.window = XCreateWindow( 
-    _ezkwin.x11.display, 
-		_ezkwin.x11.root, 
+	_ezkwin->x11.window = XCreateWindow( 
+    _ezkwin->x11.display, 
+		_ezkwin->x11.root, 
 		0, 0, // window position
-		_ezkwin.width, _ezkwin.height,
+		_ezkwin->width, _ezkwin->height,
 		0, // border width
-	  _ezkwin.x11.visual->depth,
+	  _ezkwin->x11.visual->depth,
     InputOutput,
-    _ezkwin.x11.visual->visual,
+    _ezkwin->x11.visual->visual,
 		CWBackPixel | CWColormap | CWBorderPixel | CWEventMask,
-    &_ezkwin.x11.win_attribs);
+    &_ezkwin->x11.win_attribs);
 } 
 
 _EZK_PRIVATE void ezk_x11_show_window() {
-	XMapWindow(_ezkwin.x11.display, _ezkwin.x11.window);	
+	XMapWindow(_ezkwin->x11.display, _ezkwin->x11.window);	
 }
 
 _EZK_PRIVATE void ezk_x11_run() {	
 	XEvent ev; // temporary
 
-	_ezkwin.x11.display = XOpenDisplay(NULL); // TODO: Add in support for various displays
-	if(!_ezkwin.x11.display) {
+	_ezkwin->x11.display = XOpenDisplay(NULL); // TODO: Add in support for various displays
+	if(!_ezkwin->x11.display) {
 		printf("Failed to open X11 display.\n");
 	}
 
-	_ezkwin.x11.screen = DefaultScreenOfDisplay(_ezkwin.x11.display); // TODO: add in support for multiple screens
+	_ezkwin->x11.screen = DefaultScreenOfDisplay(_ezkwin->x11.display); // TODO: add in support for multiple screens
                                                                     // X11 tends to assign multiple monitors to 
 									                                                  // one screen so this might not be necessary 
-	_ezkwin.x11.screenId = DefaultScreen(_ezkwin.x11.display);
-  _ezkwin.x11.root = RootWindow(_ezkwin.x11.display, _ezkwin.x11.screenId);
-	
+	_ezkwin->x11.screenId = DefaultScreen(_ezkwin->x11.display);
+  _ezkwin->x11.root = RootWindow(_ezkwin->x11.display, _ezkwin->x11.screenId);
 #ifdef EZK_GLX
 	ezk_glx_init();
 
-	ezk_glx_choose_visual(&_ezkwin.x11.fbc, &_ezkwin.x11.visual);	
+	ezk_glx_choose_visual(&_ezkwin->x11.fbc, &_ezkwin->x11.visual);	
 #endif
   
   // Setup window attributes
-	_ezkwin.x11.win_attribs.border_pixel = BlackPixel(_ezkwin.x11.display, _ezkwin.x11.screenId);
-  _ezkwin.x11.win_attribs.background_pixel = WhitePixel(_ezkwin.x11.display, _ezkwin.x11.screenId);
-	_ezkwin.x11.win_attribs.override_redirect = True;
-	_ezkwin.x11.win_attribs.colormap = XCreateColormap(_ezkwin.x11.display, _ezkwin.x11.root, 
-                                                     _ezkwin.x11.visual->visual, AllocNone);
-	_ezkwin.x11.win_attribs.event_mask = ExposureMask;
+	_ezkwin->x11.win_attribs.border_pixel = BlackPixel(_ezkwin->x11.display, _ezkwin->x11.screenId);
+  _ezkwin->x11.win_attribs.background_pixel = WhitePixel(_ezkwin->x11.display, _ezkwin->x11.screenId);
+	_ezkwin->x11.win_attribs.override_redirect = True;
+	_ezkwin->x11.win_attribs.colormap = XCreateColormap(_ezkwin->x11.display, _ezkwin->x11.root, 
+                                                     _ezkwin->x11.visual->visual, AllocNone);
+	_ezkwin->x11.win_attribs.event_mask = ExposureMask;
 
 	ezk_x11_create_window();
 	
 	ezk_x11_show_window();
 
-  while (!_ezkwin.quit) {
-    if(XPending(_ezkwin.x11.display) > 0) {
-      XNextEvent(_ezkwin.x11.display, &ev);
+  while (!_ezkwin->quit) {
+    if(XPending(_ezkwin->x11.display) > 0) {
+      XNextEvent(_ezkwin->x11.display, &ev);
       // Process the event here
     } else {
       struct timespec sleep_time;
@@ -406,21 +400,36 @@ _EZK_PRIVATE void ezk_x11_run() {
 
 #endif // EZK_X11
 
-_EZK_PRIVATE void ezkwin_init_inst() { 
-	_ezkwin.width = _ezkwin.width ? _ezkwin.width : EZK_DEF_WINDOW_WIDTH;
-	_ezkwin.height = _ezkwin.height ? _ezkwin.height : EZK_DEF_WINDOW_HEIGHT;
-}
-
 // Implementation
 #ifdef EZK_IMPL
 
-EZK_API_IMPL void ezkwin_run() {
-	ezkwin_init_inst();
-#ifdef EZK_X11
-	ezk_x11_run();
-#endif
+EZK_API_IMPL int ezk_alloc_window() {
+  if (!_ezk.windows) _ezk.windows = malloc(0);
+
+  uint16_t id = 0;
+  bool found = false;
+  for(;id < _ezk.window_count; id++) {
+    if(!_ezk.windows[id]) { // if there is no pointer there, its free to use
+      found = true;
+      break;
+    }
+  }
+  
+  if (!found) {
+    _ezk.windows = realloc(_ezk.windows, (_ezk.window_count + 1) * sizeof(ezk_window_instance*));
+    id = _ezk.window_count++;
+  }
+
+  printf("%d\n", id);
+
+  ezk_window_instance** new_inst = &(_ezk.windows[id]);
+  *new_inst = (ezk_window_instance*)malloc(sizeof(ezk_window_instance));
+
+  _ezkwin = *new_inst; // make it the current window
 }
 
-#endif // EZK_IMPDL
+#endif // EZK_WIN
+
+#endif // EZK_IMPL
 
 #endif // EZK_WINDOW_INCLUDED
