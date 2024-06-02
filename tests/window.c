@@ -4,9 +4,5 @@
 #include "../ezk_window.h"
 
 int main() {
-	int window = ezk_alloc_window();
-  window = ezk_alloc_window();
-  window = ezk_alloc_window();
-	window = ezk_alloc_window();
-	window = ezk_alloc_window();
+	int window = ezk_create_window();
 }

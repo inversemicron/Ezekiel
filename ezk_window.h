@@ -12,7 +12,7 @@
 
 // Determine window system to use
 #if defined(_WIN32) || defined(_WIN64)
-	#define EZK_WIN32 // as in win32api
+	#define EZK_WIN32 // as in _ezk_curwin32api
 #elif defined(__ANDROID__)
 	#define EZK_ANDROID
 #elif defined(__linux__) || defined(__unix__) // android has already been checked for
@@ -101,12 +101,18 @@ typedef enum {
 	EZK_EVTYPE_SELECTION_CLEAR,
 	EZK_EVTYPE_SELECTION_NOTIFY,
 	EZK_EVTYPE_SELECTION_REQUEST
-} ezkwin_event_type; 
+} ezk_event_type;
+
+typedef enum {
+   EZK_WINTYPE_X11,
+   EZK_WINTYPE_WIN32,
+   EZK_WINTYPE_COCOA
+} ezk_win_type;
 
 typedef struct {
-	ezkwin_event_type type;
+	ezk_event_type type;
 	int keycode;
-} ezkwin_event;
+} ezk_event;
 #ifdef EZK_GL 
   
 #endif
@@ -125,7 +131,7 @@ typedef struct {
     bool doublebuffer;
 
     GLXFBConfig handle;
-  } ezk_gl_fbconfig  ;
+  } ezk_gl_fbconfig;
 
 #ifdef EZK_GLX
 typedef struct {
@@ -133,7 +139,7 @@ typedef struct {
 	int vMinor;
 
 	GLXContext ctx;
-} ezkwin_glx_inst;
+} ezk_glx_inst;
 #endif // EZK_GLX
 #endif
 
@@ -142,7 +148,7 @@ typedef struct {
 	Display* display;
 	Window window;
 	Screen* screen;
-	int screenId;
+	int screen_id;
 	Window root;
 
   ezk_gl_fbconfig fbc;
@@ -150,20 +156,22 @@ typedef struct {
 
   XSetWindowAttributes win_attribs; // TODO: centralise window attributes into ezk_window_attribs
 	Colormap colormap;
-} ezkwin_x11_inst;
+} ezk_x11_inst;
 #endif
 
 typedef struct {
 	int width;
 	int height;
 	int fullscreen;
-	ezkwin_event event;
+	ezk_event event;
 
 	bool quit;
+
+  ezk_win_type platform;
 #ifdef EZK_X11
-	ezkwin_x11_inst x11;
+	ezk_x11_inst x11;
 	#ifdef EZK_GLX
-		ezkwin_glx_inst glx;
+		ezk_glx_inst glx;
 	#endif
 #endif
 } ezk_window_instance;
@@ -184,7 +192,7 @@ typedef struct {
 
 } ezk_instance;
 
-static ezk_window_instance* _ezkwin; // current window
+static ezk_window_instance* _ezk_curwin;
 static ezk_instance _ezk;
 
 #ifdef EZK_WIN
@@ -245,13 +253,13 @@ EZK_API_DECL int ezk_init_window();
 #ifdef EZK_GLX
   _EZK_PRIVATE int ezk_glx_attrib(GLXFBConfig c, int a) {
     int value;
-    glXGetFBConfigAttrib(_ezkwin->x11.display, c, a, &value);
+    glXGetFBConfigAttrib(_ezk_curwin->x11.display, c, a, &value);
     return value;
   }  
 
 	_EZK_PRIVATE void ezk_glx_init() {
-		glXQueryVersion(_ezkwin->x11.display, &_ezkwin->glx.vMajor, &_ezkwin->glx.vMinor);
-		if (_ezkwin->glx.vMajor <= 1 && _ezkwin->glx.vMinor <= 2) {
+		glXQueryVersion(_ezk_curwin->x11.display, &_ezk_curwin->glx.vMajor, &_ezk_curwin->glx.vMinor);
+		if (_ezk_curwin->glx.vMajor <= 1 && _ezk_curwin->glx.vMinor <= 2) {
 			printf("GLX 1.2 or earlier is not supported\n");
 			abort();
 		}
@@ -263,7 +271,7 @@ EZK_API_DECL int ezk_init_window();
       int nativeConfigCount = 0;
       int usableConfigCount = 0;
       
-      nativeConfigs = glXGetFBConfigs(_ezkwin->x11.display, _ezkwin->x11.screenId, &nativeConfigCount);
+      nativeConfigs = glXGetFBConfigs(_ezk_curwin->x11.display, _ezk_curwin->x11.screen_id, &nativeConfigCount);
       
       usableConfigs = malloc(sizeof(ezk_gl_fbconfig) * nativeConfigCount);
       memset(usableConfigs, 0, sizeof(ezk_gl_fbconfig) * nativeConfigCount);
@@ -327,7 +335,7 @@ EZK_API_DECL int ezk_init_window();
 	_EZK_PRIVATE void ezk_glx_choose_visual(ezk_gl_fbconfig *fbc, XVisualInfo **v) {
     *fbc = ezk_glx_choose_fbconfig();
 
-    *v = glXGetVisualFromFBConfig(_ezkwin->x11.display, fbc->handle);
+    *v = glXGetVisualFromFBConfig(_ezk_curwin->x11.display, fbc->handle);
 	}
 #endif // EZK_GLX
 #endif // EZK_GL
@@ -335,57 +343,48 @@ EZK_API_DECL int ezk_init_window();
 #ifdef EZK_X11
 
 _EZK_PRIVATE void ezk_x11_create_window() {
-	_ezkwin->x11.window = XCreateWindow( 
-    _ezkwin->x11.display, 
-		_ezkwin->x11.root, 
+	_ezk_curwin->x11.window = XCreateWindow( 
+    _ezk_curwin->x11.display, 
+		_ezk_curwin->x11.root, 
 		0, 0, // window position
-		_ezkwin->width, _ezkwin->height,
+		_ezk_curwin->width, _ezk_curwin->height,
 		0, // border width
-	  _ezkwin->x11.visual->depth,
+	  _ezk_curwin->x11.visual->depth,
     InputOutput,
-    _ezkwin->x11.visual->visual,
+    _ezk_curwin->x11.visual->visual,
 		CWBackPixel | CWColormap | CWBorderPixel | CWEventMask,
-    &_ezkwin->x11.win_attribs);
+    &_ezk_curwin->x11.win_attribs);
 } 
 
 _EZK_PRIVATE void ezk_x11_show_window() {
-	XMapWindow(_ezkwin->x11.display, _ezkwin->x11.window);	
+	XMapWindow(_ezk_curwin->x11.display, _ezk_curwin->x11.window);	
 }
 
 _EZK_PRIVATE void ezk_x11_run() {	
 	XEvent ev; // temporary
 
-	_ezkwin->x11.display = XOpenDisplay(NULL); // TODO: Add in support for various displays
-	if(!_ezkwin->x11.display) {
-		printf("Failed to open X11 display.\n");
-	}
 
-	_ezkwin->x11.screen = DefaultScreenOfDisplay(_ezkwin->x11.display); // TODO: add in support for multiple screens
-                                                                    // X11 tends to assign multiple monitors to 
-									                                                  // one screen so this might not be necessary 
-	_ezkwin->x11.screenId = DefaultScreen(_ezkwin->x11.display);
-  _ezkwin->x11.root = RootWindow(_ezkwin->x11.display, _ezkwin->x11.screenId);
+
 #ifdef EZK_GLX
 	ezk_glx_init();
 
-	ezk_glx_choose_visual(&_ezkwin->x11.fbc, &_ezkwin->x11.visual);	
+	ezk_glx_choose_visual(&_ezk_curwin->x11.fbc, &_ezk_curwin->x11.visual);	
 #endif
   
   // Setup window attributes
-	_ezkwin->x11.win_attribs.border_pixel = BlackPixel(_ezkwin->x11.display, _ezkwin->x11.screenId);
-  _ezkwin->x11.win_attribs.background_pixel = WhitePixel(_ezkwin->x11.display, _ezkwin->x11.screenId);
-	_ezkwin->x11.win_attribs.override_redirect = True;
-	_ezkwin->x11.win_attribs.colormap = XCreateColormap(_ezkwin->x11.display, _ezkwin->x11.root, 
-                                                     _ezkwin->x11.visual->visual, AllocNone);
-	_ezkwin->x11.win_attribs.event_mask = ExposureMask;
+	_ezk_curwin->x11.win_attribs.border_pixel = BlackPixel(_ezk_curwin->x11.display, _ezk_curwin->x11.screen_id);
+  _ezk_curwin->x11.win_attribs.background_pixel = WhitePixel(_ezk_curwin->x11.display, _ezk_curwin->x11.screen_id);
+	_ezk_curwin->x11.win_attribs.override_redirect = True;
+	_ezk_curwin->x11.win_attribs.colormap = XCreateColormap(_ezk_curwin->x11.display, _ezk_curwin->x11.root, 
+                                                     _ezk_curwin->x11.visual->visual, AllocNone);
+	_ezk_curwin->x11.win_attribs.event_mask = ExposureMask;
 
 	ezk_x11_create_window();
 	
 	ezk_x11_show_window();
-
-  while (!_ezkwin->quit) {
-    if(XPending(_ezkwin->x11.display) > 0) {
-      XNextEvent(_ezkwin->x11.display, &ev);
+  while (!_ezk_curwin->quit) {
+    if(XPending(_ezk_curwin->x11.display) > 0) {
+      XNextEvent(_ezk_curwin->x11.display, &ev);
       // Process the event here
     } else {
       struct timespec sleep_time;
@@ -400,10 +399,7 @@ _EZK_PRIVATE void ezk_x11_run() {
 
 #endif // EZK_X11
 
-// Implementation
-#ifdef EZK_IMPL
-
-EZK_API_IMPL int ezk_alloc_window() {
+_EZK_PRIVATE int ezk_alloc_window() {
   if (!_ezk.windows) _ezk.windows = malloc(0);
 
   uint16_t id = 0;
@@ -425,8 +421,46 @@ EZK_API_IMPL int ezk_alloc_window() {
   ezk_window_instance** new_inst = &(_ezk.windows[id]);
   *new_inst = (ezk_window_instance*)malloc(sizeof(ezk_window_instance));
 
-  _ezkwin = *new_inst; // make it the current window
+  printf("%d\n", sizeof(ezk_window_instance));
+
+  return id;
 }
+
+#endif // EZK_WIN
+
+// Implementation
+#ifdef EZK_IMPL
+
+#ifdef EZK_WIN
+
+EZK_API_IMPL int ezk_create_window() {
+  int id = ezk_alloc_window();
+  _ezk_curwin = _ezk.windows[id]; // make window current
+  
+  memset(_ezk_curwin, 0, sizeof(ezk_window_instance));
+  
+#if defined(EZK_X11)
+  _ezk_curwin->x11.display = XOpenDisplay(NULL); // TODO: Add in support for various displays
+	if(!_ezk_curwin->x11.display) {
+		printf("Failed to open X11 display.\n");
+	}
+
+  _ezk_curwin->platform = EZK_WINTYPE_X11;
+	_ezk_curwin->x11.screen = 
+  DefaultScreenOfDisplay(
+      _ezk_curwin->x11.display); // TODO: add in support for multiple screens
+                                                                    // X11 tends to assign multiple monitors to 
+									                                                  // one screen so this might not be necessary 
+	_ezk_curwin->x11.screen_id = DefaultScreen(_ezk_curwin->x11.display);
+  _ezk_curwin->x11.root = RootWindow(_ezk_curwin->x11.display, _ezk_curwin->x11.screen_id);
+
+
+#elif defined(EZK_WIN32)
+  _ezk_curwin->platform = EZK_WINTYPE_WIN32;
+#endif
+}
+
+// TODO: allow loading of window from string for debugging / saving state (ezk_load_window(char* string, int len))
 
 #endif // EZK_WIN
 
