@@ -1,4 +1,9 @@
 // This is a WORK IN PROGRESS, and should not be used to any capacity professionally. Also currently its is a carbon copy of SOKOL so use that instead.
+
+// wiggle - WGL, windows GL
+// eagle - EGL
+
+
 #ifndef EZK_WINDOW_INCLUDED // include guard
 #define EZK_WINDOW_INCLUDED
 
@@ -29,7 +34,6 @@
 #endif
 
 // Backends
-
 #if defined(EZK_X11) // TODO: Add in support for GLES
 	#ifdef EZK_GL
 		#define EZK_GLX
@@ -40,9 +44,15 @@
 	#endif
 #endif 
 
+typedef enum {
+  EZK_BACKEND_GL,
+  EZK_BACKEND_VULKAN,
+  EZK_BACKEND_D3D,
+  EZK_BACKEND_NONE
+} ezk_backend_type;
+
 // Macros
 
-// this is going to end up being a macro monster, sorry NASA :(
 #ifndef EZK_DEF_WIN_HEIGHT
 #define EZK_DEF_WIN_HEIGHT 600
 #endif
@@ -347,7 +357,7 @@ _EZK_PRIVATE void ezk_x11_create_window() {
     _ezk_curwin->x11.display, 
 		_ezk_curwin->x11.root, 
 		0, 0, // window position
-		_ezk_curwin->width, _ezk_curwin->height,
+		1600, 900, // TODO: replace with non-placeholder values
 		0, // border width
 	  _ezk_curwin->x11.visual->depth,
     InputOutput,
@@ -359,43 +369,6 @@ _EZK_PRIVATE void ezk_x11_create_window() {
 _EZK_PRIVATE void ezk_x11_show_window() {
 	XMapWindow(_ezk_curwin->x11.display, _ezk_curwin->x11.window);	
 }
-
-_EZK_PRIVATE void ezk_x11_run() {	
-	XEvent ev; // temporary
-
-
-
-#ifdef EZK_GLX
-	ezk_glx_init();
-
-	ezk_glx_choose_visual(&_ezk_curwin->x11.fbc, &_ezk_curwin->x11.visual);	
-#endif
-  
-  // Setup window attributes
-	_ezk_curwin->x11.win_attribs.border_pixel = BlackPixel(_ezk_curwin->x11.display, _ezk_curwin->x11.screen_id);
-  _ezk_curwin->x11.win_attribs.background_pixel = WhitePixel(_ezk_curwin->x11.display, _ezk_curwin->x11.screen_id);
-	_ezk_curwin->x11.win_attribs.override_redirect = True;
-	_ezk_curwin->x11.win_attribs.colormap = XCreateColormap(_ezk_curwin->x11.display, _ezk_curwin->x11.root, 
-                                                     _ezk_curwin->x11.visual->visual, AllocNone);
-	_ezk_curwin->x11.win_attribs.event_mask = ExposureMask;
-
-	ezk_x11_create_window();
-	
-	ezk_x11_show_window();
-  while (!_ezk_curwin->quit) {
-    if(XPending(_ezk_curwin->x11.display) > 0) {
-      XNextEvent(_ezk_curwin->x11.display, &ev);
-      // Process the event here
-    } else {
-      struct timespec sleep_time;
-      sleep_time.tv_sec = 0;
-      sleep_time.tv_nsec = 1000000; // Sleep for 10 milliseconds
-      nanosleep(&sleep_time, NULL); // This is to prevent busy waiting, TODO: change to allow various polling rates
-    }
-  }
-}
-
-
 
 #endif // EZK_X11
 
@@ -416,12 +389,9 @@ _EZK_PRIVATE int ezk_alloc_window() {
     id = _ezk.window_count++;
   }
 
-  printf("%d\n", id);
-
   ezk_window_instance** new_inst = &(_ezk.windows[id]);
   *new_inst = (ezk_window_instance*)malloc(sizeof(ezk_window_instance));
 
-  printf("%d\n", sizeof(ezk_window_instance));
 
   return id;
 }
@@ -433,7 +403,7 @@ _EZK_PRIVATE int ezk_alloc_window() {
 
 #ifdef EZK_WIN
 
-EZK_API_IMPL int ezk_create_window() {
+EZK_API_IMPL int ezk_create_window() { // TODO: add in support for using native graphics and EGL
   int id = ezk_alloc_window();
   _ezk_curwin = _ezk.windows[id]; // make window current
   
@@ -446,22 +416,68 @@ EZK_API_IMPL int ezk_create_window() {
 	}
 
   _ezk_curwin->platform = EZK_WINTYPE_X11;
-	_ezk_curwin->x11.screen = 
-  DefaultScreenOfDisplay(
-      _ezk_curwin->x11.display); // TODO: add in support for multiple screens
+	_ezk_curwin->x11.screen = DefaultScreenOfDisplay(_ezk_curwin->x11.display); 
+                                                                    // TODO: add in support for multiple screens
                                                                     // X11 tends to assign multiple monitors to 
 									                                                  // one screen so this might not be necessary 
 	_ezk_curwin->x11.screen_id = DefaultScreen(_ezk_curwin->x11.display);
   _ezk_curwin->x11.root = RootWindow(_ezk_curwin->x11.display, _ezk_curwin->x11.screen_id);
 
+  #ifdef EZK_GLX
+	ezk_glx_init();
+
+	ezk_glx_choose_visual(&_ezk_curwin->x11.fbc, &_ezk_curwin->x11.visual);	
+#endif
+  
+  // Setup window attributes
+  memset(&(_ezk_curwin->x11.win_attribs), 0, sizeof(XSetWindowAttributes));
+	_ezk_curwin->x11.win_attribs.border_pixel = BlackPixel(_ezk_curwin->x11.display, _ezk_curwin->x11.screen_id);
+  _ezk_curwin->x11.win_attribs.background_pixel = WhitePixel(_ezk_curwin->x11.display, _ezk_curwin->x11.screen_id);
+	_ezk_curwin->x11.win_attribs.override_redirect = True;
+	_ezk_curwin->x11.win_attribs.colormap = XCreateColormap(_ezk_curwin->x11.display, _ezk_curwin->x11.root, 
+                                                     _ezk_curwin->x11.visual->visual, AllocNone);
+	_ezk_curwin->x11.win_attribs.event_mask = ExposureMask;
+  _ezk_curwin->x11.win_attribs.override_redirect = 0;
+
+	ezk_x11_create_window();
 
 #elif defined(EZK_WIN32)
   _ezk_curwin->platform = EZK_WINTYPE_WIN32;
 #endif
+
+  return id;
 }
 
 // TODO: allow loading of window from string for debugging / saving state (ezk_load_window(char* string, int len))
 
+void ezk_show_window(int id) {
+  _ezk_curwin = _ezk.windows[id];
+#ifdef EZK_X11
+  ezk_x11_show_window();
+#endif
+}
+
+void ezk_main_loop(int id) {
+  _ezk_curwin = _ezk.windows[id]; 
+
+#ifdef EZK_X11 
+  XEvent ev; // temporary
+  
+  memset(&ev, 0, sizeof(XEvent));
+
+  while (!_ezk_curwin->quit) {
+    if(XPending(_ezk_curwin->x11.display) > 0) {
+      XNextEvent(_ezk_curwin->x11.display, &ev);
+      // Process the event here
+    } else {
+      struct timespec sleep_time;
+      sleep_time.tv_sec = 0;
+      sleep_time.tv_nsec = 1000000; // Sleep for 10 milliseconds
+      nanosleep(&sleep_time, NULL); // This is to prevent busy waiting, TODO: change to allow various polling rates
+    }
+  }
+#endif 
+}
 #endif // EZK_WIN
 
 #endif // EZK_IMPL
