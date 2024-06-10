@@ -5,7 +5,6 @@
 
 int main() {
 	int window = ezk_create_window();
-  printf("%d\n", window);
 
   ezk_show_window(window);
   ezk_main_loop(window);

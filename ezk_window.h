@@ -70,48 +70,49 @@ typedef enum {
 	#define EZK_API_IMPL 
 #endif
 
+#define ezk_zero_var(v) memset(&v, 0, sizeof(v))
+#define ezk_zero_ptr(p) memset(p, 0, sizeof(*p))
+
 // Declarations
 
 #ifdef EZK_WIN
 
 // Events
 typedef enum {
-	EZK_EVTYPE_KEY_DOWN,
-	EZK_EVTYPE_KEY_UP,
-	EZK_EVTYPE_BUTTON_DOWN,
-	EZK_EVTYPE_BUTTON_UP,
-	EZK_EVTYPE_BUTTON_MOTION,
-	EZK_EVTYPE_MOUSE_ENTER,
-	EZK_EVTYPE_MOUSE_LEAVE,
-	EZK_EVTYPE_FOCUS_GAIN,
-	EZK_EVTYPE_FOCUS_LOSS,
-	EZK_EVTYPE_KEYMAP_CHANGE, // for changing languages
-	EZK_EVTYPE_EXPOSE, // These three might need merging into one to support windows :P
-	EZK_EVTYPE_GRAPHICS_EXPOSE,
-	EZK_EVTYPE_NO_EXPOSE,
-	// For windows requesting changes
-	EZK_EVTYPE_CIRCULATE_REQUEST, // Change stacking order of window
-	EZK_EVTYPE_CONFIGURE_REQUEST, // Change size or position of window
-	EZK_EVTYPE_MAP_REQUEST, // Make a new window
-	EZK_EVTYPE_RESIZE_REQUEST, // Resize window
-	// For notifying when changes happen
-	EZK_EVTYPE_CIRCULATE_NOTIFY,
-	EZK_EVTYPE_CONFIGURE_NOTIFY,
-	EZK_EVTYPE_CREATE_NOTIFY,
-	EZK_EVTYPE_DESTROY_NOTIFY,
-	EZK_EVTYPE_GRAVITY_NOTIFY, // To do with parent windows, might not be needed
-	EZK_EVTYPE_MAP_NOTIFY,
-	EZK_EVTYPE_MAPPING_NOTIFY,
-	EZK_EVTYPE_REPARENT_NOTIFY,
-	EZK_EVTYPE_UNMAP_NOTIFY,
-	EZK_EVTYPE_VISIBILITY_NOTIFY,
-	EZK_EVTYPE_COLORMAP_NOTIFY,
-	EZK_EVTYPE_CLIENT_MESSAGE,
-	EZK_EVTYPE_PROPERTY_NOTIFY,
-	EZK_EVTYPE_SELECTION_CLEAR,
-	EZK_EVTYPE_SELECTION_NOTIFY,
-	EZK_EVTYPE_SELECTION_REQUEST
-} ezk_event_type;
+  EZK_EVTYPE_NONE, // there so that type does not default to keypress
+  EZK_EVTYPE_KEYPRESS,
+  EZK_EVTYPE_KEYRELEASE,
+  EZK_EVTYPE_BUTTONPRESS,
+  EZK_EVTYPE_BUTTONRELEASE,
+  EZK_EVTYPE_MOTIONNOTIFY,
+  EZK_EVTYPE_ENTERNOTIFY,
+  EZK_EVTYPE_LEAVENOTIFY,
+  EZK_EVTYPE_FOCUSIN,
+  EZK_EVTYPE_FOCUSOUT,
+  EZK_EVTYPE_EXPOSE,
+  EZK_EVTYPE_GRAPHICSEXPOSE,
+  EZK_EVTYPE_NOEXPOSE,
+  EZK_EVTYPE_VISIBILITYNOTIFY,
+  EZK_EVTYPE_CREATENOTIFY,
+  EZK_EVTYPE_DESTROYNOTIFY,
+  EZK_EVTYPE_UNMAPNOTIFY,
+  EZK_EVTYPE_MAPNOTIFY,
+  EZK_EVTYPE_MAPREQUEST,
+  EZK_EVTYPE_REPARENTNOTIFY,
+  EZK_EVTYPE_CONFIGURENOTIFY,
+  EZK_EVTYPE_CONFIGUREREQUEST,
+  EZK_EVTYPE_GRAVITYNOTIFY,
+  EZK_EVTYPE_RESIZEREQUEST, 
+  EZK_EVTYPE_CIRCULATENOTIFY,
+  EZK_EVTYPE_CIRCULATEREQUEST,
+  EZK_EVTYPE_PROPERTYNOTIFY,
+  EZK_EVTYPE_SELECTIONCLEAR,
+  EZK_EVTYPE_SELECTIONNOTIFY,
+  EZK_EVTYPE_CLIENTMESSAGE,
+  EZK_EVTYPE_MAPPINGNOTIFY,
+  EZK_EVTYPE_KEYMAPNOTIFY,
+  EZK_EVTYPE_GENERIC
+} ezk_event_type; // based off of x11 docs, subject to change
 
 typedef enum {
    EZK_WINTYPE_X11,
@@ -396,19 +397,155 @@ _EZK_PRIVATE int ezk_alloc_window() {
   return id;
 }
 
+#ifdef EZK_X11
+
 #endif // EZK_WIN
 
 // Implementation
 #ifdef EZK_IMPL
 
-#ifdef EZK_WIN
+#if defined(EZK_X11)
+  _EZK_PRIVATE ezk_event ezk_translate_event(XEvent ev) {
+    ezk_event translated;
+    ezk_zero_var(translated);
+    
+    switch (ev.type) {
+      case KeyPress:
+        translated.type = EZK_EVTYPE_KEYPRESS;
+
+        break;
+      case KeyRelease:
+        translated.type = EZK_EVTYPE_KEYRELEASE;
+
+        break;
+      case ButtonPress:
+        translated.type = EZK_EVTYPE_BUTTONPRESS;
+
+        break;
+      case ButtonRelease:
+        translated.type = EZK_EVTYPE_BUTTONRELEASE;
+
+        break;
+      case MotionNotify:
+        translated.type = EZK_EVTYPE_MOTIONNOTIFY;
+
+        break;
+      case EnterNotify:
+        translated.type = EZK_EVTYPE_ENTERNOTIFY;
+
+        break;
+      case LeaveNotify:
+        translated.type = EZK_EVTYPE_LEAVENOTIFY;
+
+        break;
+      case FocusIn:
+        translated.type = EZK_EVTYPE_FOCUSIN;
+
+        break;
+      case FocusOut:
+        translated.type = EZK_EVTYPE_FOCUSOUT;
+
+        break;
+      case Expose:
+        translated.type = EZK_EVTYPE_EXPOSE;
+
+        break;
+      case GraphicsExpose:
+        translated.type = EZK_EVTYPE_GRAPHICSEXPOSE;
+
+        break;
+      case NoExpose:
+        translated.type = EZK_EVTYPE_NOEXPOSE;
+
+        break;
+      case VisibilityNotify:
+        translated.type = EZK_EVTYPE_VISIBILITYNOTIFY;
+
+        break;
+      case CreateNotify:
+        translated.type = EZK_EVTYPE_CREATENOTIFY;
+
+        break;
+      case DestroyNotify:
+        translated.type = EZK_EVTYPE_DESTROYNOTIFY;
+
+        break;
+      case UnmapNotify:
+        translated.type = EZK_EVTYPE_UNMAPNOTIFY;
+
+        break;
+      case MapNotify:
+        translated.type = EZK_EVTYPE_MAPNOTIFY;
+
+        break;
+      case MapRequest:
+        translated.type = EZK_EVTYPE_MAPREQUEST;
+
+        break;
+      case ReparentNotify:
+        translated.type = EZK_EVTYPE_REPARENTNOTIFY;
+
+        break;
+      case ConfigureNotify:
+        translated.type = EZK_EVTYPE_CONFIGURENOTIFY;
+
+        break;
+      case ConfigureRequest:
+        translated.type = EZK_EVTYPE_CONFIGUREREQUEST;
+
+        break;
+      case GravityNotify:
+        translated.type = EZK_EVTYPE_GRAVITYNOTIFY;
+
+        break;
+      case ResizeRequest:
+        translated.type = EZK_EVTYPE_RESIZEREQUEST;
+
+        break;
+      case CirculateNotify:
+        translated.type = EZK_EVTYPE_CIRCULATENOTIFY;
+
+        break;
+      case CirculateRequest:
+        translated.type = EZK_EVTYPE_CIRCULATEREQUEST;
+
+        break;
+      case PropertyNotify:
+        translated.type = EZK_EVTYPE_PROPERTYNOTIFY;
+
+        break;
+      case SelectionClear:
+        translated.type = EZK_EVTYPE_SELECTIONCLEAR;
+
+        break;
+      case SelectionNotify:
+        translated.type = EZK_EVTYPE_SELECTIONNOTIFY;
+
+        break;
+      case ClientMessage:
+        translated.type = EZK_EVTYPE_CLIENTMESSAGE;
+
+        break;
+      case MappingNotify:
+        translated.type = EZK_EVTYPE_MAPPINGNOTIFY;
+
+        break;
+      case KeymapNotify:
+        translated.type = EZK_EVTYPE_KEYMAPNOTIFY;
+
+        break;
+    }
+    return translated;
+  }
+#elif defined(EZK_WIN32)
+
+#endif
 
 EZK_API_IMPL int ezk_create_window() { // TODO: add in support for using native graphics and EGL
   int id = ezk_alloc_window();
   _ezk_curwin = _ezk.windows[id]; // make window current
   
-  memset(_ezk_curwin, 0, sizeof(ezk_window_instance));
-  
+  ezk_zero_ptr(_ezk_curwin);
 #if defined(EZK_X11)
   _ezk_curwin->x11.display = XOpenDisplay(NULL); // TODO: Add in support for various displays
 	if(!_ezk_curwin->x11.display) {
@@ -462,13 +599,15 @@ void ezk_main_loop(int id) {
 
 #ifdef EZK_X11 
   XEvent ev; // temporary
-  
-  memset(&ev, 0, sizeof(XEvent));
+  ezk_zero_var(ev);
+
+  ezk_event translated;
+  ezk_zero_var(translated);
 
   while (!_ezk_curwin->quit) {
     if(XPending(_ezk_curwin->x11.display) > 0) {
       XNextEvent(_ezk_curwin->x11.display, &ev);
-      // Process the event here
+      translated = ezk_translate_event(ev);
     } else {
       struct timespec sleep_time;
       sleep_time.tv_sec = 0;
