@@ -123,6 +123,8 @@ typedef enum {
 typedef struct {
 	ezk_event_type type;
 	int keycode;
+  Time time;
+  int mx, my;
 } ezk_event;
 #ifdef EZK_GL 
   
@@ -412,10 +414,12 @@ _EZK_PRIVATE int ezk_alloc_window() {
     switch (ev.type) {
       case KeyPress:
         translated.type = EZK_EVTYPE_KEYPRESS;
-
+KeyEvent:
+        printf("X: %d Y: %d\n", ev.xkey.x, ev.xkey.y);
         break;
       case KeyRelease:
         translated.type = EZK_EVTYPE_KEYRELEASE;
+        goto KeyEvent;
 
         break;
       case ButtonPress:
@@ -573,7 +577,7 @@ EZK_API_IMPL int ezk_create_window() { // TODO: add in support for using native 
 	_ezk_curwin->x11.win_attribs.override_redirect = True;
 	_ezk_curwin->x11.win_attribs.colormap = XCreateColormap(_ezk_curwin->x11.display, _ezk_curwin->x11.root, 
                                                      _ezk_curwin->x11.visual->visual, AllocNone);
-	_ezk_curwin->x11.win_attribs.event_mask = ExposureMask;
+	_ezk_curwin->x11.win_attribs.event_mask = 0xffffff; // all the events
   _ezk_curwin->x11.win_attribs.override_redirect = 0;
 
 	ezk_x11_create_window();
