@@ -1,9 +1,14 @@
 #ifndef EZK_WIN_INCL
 #define EZK_WIN_INCL
 
+#include "./ezk_platform.h"
+#include "./ezk_window_common.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+// Platform-specific headers
 
 #if defined(EZK_WINDOWS)
   #include "./ezk_window/win32.h"
@@ -13,25 +18,23 @@
   #include "./ezk_window/x11.h"
 #endif
 
-// Typedefs
-typedef struct {
-  int id;
-  int wx,wy;
-  int px,py;
-  char* name;
-  int fs_state;
-} ezk_window;
+// Externs (from platform-specific headers)
+// This section isn't necessary as header already exist but serves to document
+// platform-specific functions. 
+extern void ezk_internal_create_window(ezk_window* win, ezk_win_desc desc);
+extern ezk_u32 ezk_internal_get_event_count(ezk_win_id id);
+extern ezk_event ezk_internal_get_next_event(ezk_win_id id);
 
 // Statics
 static ezk_window** windows;
-static int win_count = 0;
+static ezk_win_id win_count = 0;
 
-static int* free_ids;
-static int free_id_count = 0;
+static ezk_win_id* free_ids;
+static ezk_win_id free_id_count = 0;
 
 // Functions, static and API
 
-static void realloc_ids(int n) {
+static void realloc_ids(ezk_u16 n) {
   if(!windows) {
     windows = malloc(n * sizeof(ezk_window*));
   } else {
@@ -39,44 +42,106 @@ static void realloc_ids(int n) {
   }
 }
 
-static void realloc_free_ids(int n) {
+static void realloc_free_ids(ezk_u16 n) {
   if(!windows) {
-    free_ids = malloc(n * sizeof(int));
+    free_ids = malloc(n * sizeof(ezk_win_id));
   } else {
-    free_ids = realloc(free_ids, n * sizeof(int));
+    free_ids = realloc(free_ids, n * sizeof(ezk_win_id));
   }
 }
 
-static int alloc_window_id(ezk_window* window) {
-  int id = 0;
+static ezk_win_id alloc_window_id(ezk_window* win) {
+  ezk_win_id id = 0;
   if (free_id_count) {
     id = free_ids[--free_id_count]; // Last free id
     realloc_free_ids(free_id_count); // Truncate the list, removing the id we just used
   } else {
     realloc_ids(win_count + 1);
     id = win_count++;
-    printf("Win Count: %d\n", win_count);
   }
-  windows[id] = window;
+  windows[id] = win;
   return id;
 }
 
-EZKAPI int ezk_create_window() {
+static void realloc_evqueue(ezk_window* win) {
+  if(win->ev_queue) {
+    win->ev_queue = realloc(win->ev_queue, win->ev_count * sizeof(ezk_event));
+  } else {
+    win->ev_queue = malloc(win->ev_count * sizeof(ezk_event));
+  }
+}
+
+static void update_evqueue(ezk_window* win) {
+  ezk_u32 start_index = win->ev_count; // where we put new events 
+  ezk_u32 event_count = ezk_internal_get_event_count(win->id);
+
+  win->ev_count += event_count;
+  realloc_evqueue(win);
+  for(ezk_u32 i = 0; i < event_count; i++) {
+    win->ev_queue[start_index + i] = ezk_internal_get_next_event(win->id);
+    if(win->ev_queue[start_index + 1].type == EZK_EVENT_EXIT) {
+      free(win->ev_queue);
+    }
+  }
+} 
+
+EZKAPI ezk_win_id ezk_create_window(ezk_win_desc desc) {
   ezk_window* win = malloc(sizeof(ezk_window));
   if (!win) {return -1;}
   memset(win, 0, sizeof(ezk_window)); // Clear the structure
-  alloc_window_id(win);
+  win->id = alloc_window_id(win); // Get our ID
+
+  win->pos = desc.pos;
+  win->dims = desc.dims;
+  win->name = desc.name;
+
+  ezk_internal_create_window(win, desc);
+
+  return win->id;
+}
+
+EZKAPI void ezk_delete_window(ezk_win_id id) {
+  ezk_window* win = windows[id];
+  ezk_internal_delete_window(id);
+  if(win->ev_queue) {
+    free(win->ev_queue);
+  } 
+  if(win->name) {
+    free(win->name);
+  }
+
+  realloc_free_ids(free_id_count + 1);
+  free_ids[free_id_count] = win->id;
+
+  free(win);
+
+  free_id_count++;
 }
 
 EZKAPI void ezk_free_windows() {
   if (free_ids) free(free_ids);
   if(windows) {
-    for(int i = 0; i < win_count; i++) {
+    for(ezk_win_id i = 0; i < win_count; i++) {
       if(windows[i]) {
-        free(windows[i]);
+        ezk_delete_window(i);
       }
     }
-      free(windows);
+    free(windows);
+  }
+}
+
+EZKAPI void ezk_update_window(ezk_win_id id) {
+  ezk_window* win = windows[id];
+  update_evqueue(win);
+
+  for(int i = 0;i < win->ev_count;i++) { // loop through each event and process it
+    ezk_event ev = win->ev_queue[i];
+
+    switch (ev.type) {
+      case EZK_EVENT_EXIT:
+        ezk_delete_window(id);
+        break;
+    }
   }
 }
 
