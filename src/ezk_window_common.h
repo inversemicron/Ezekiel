@@ -39,25 +39,6 @@ typedef enum {
   EZK_BUTTON_5 = 16
 } ezk_button;
 
-
-typedef struct {
-  ezk_v2_i dims;
-  ezk_v2_i pos;
-  ezk_bool fullscreen;
-  char* name;
-
-  ezk_win_bg_type bg_type;
-  uint32_t bg_color;
-  char* bg_image;
-
-  ezk_win_bg_type border_type;
-  uint32_t border_color;
-  char* border_image;
-  ezk_u16 border_width;
-
-  EZK_CALLBACK(exit_cb, void);
-} ezk_win_desc;
-
 typedef struct {
   ezk_event_type type;
   ezk_win_id win_id;
@@ -122,6 +103,26 @@ typedef struct {
 } ezk_mouse;
 
 typedef struct {
+  ezk_v2_i dims;
+  ezk_v2_i pos;
+  ezk_bool fullscreen;
+  char* name;
+
+  ezk_win_bg_type bg_type;
+  uint32_t bg_color;
+  char* bg_image;
+
+  ezk_win_bg_type border_type;
+  uint32_t border_color;
+  char* border_image;
+  ezk_u16 border_width;
+
+  EZK_CALLBACK(create_cb, void, ezk_win_id id);
+  EZK_CALLBACK(event_cb, void, ezk_win_id id, ezk_event ev);
+  EZK_CALLBACK(quit_cb, void, ezk_win_id id);
+} ezk_win_desc;
+
+typedef struct {
   ezk_win_id id;
   ezk_v2_i dims;
   ezk_v2_i pos;
@@ -133,6 +134,12 @@ typedef struct {
   
   ezk_mouse mouse;
   ezk_bool keyboard[EZK_KEY_COUNT]; // shows if each key is down
-  } ezk_window;
+
+  ezk_bool quitted; // up to user to terminate loop
+
+  EZK_CALLBACK(create_cb, void, ezk_win_id id);
+  EZK_CALLBACK(event_cb, void, ezk_win_id id, ezk_event ev);
+  EZK_CALLBACK(quit_cb, void, ezk_win_id id);
+} ezk_window;
 
 #endif

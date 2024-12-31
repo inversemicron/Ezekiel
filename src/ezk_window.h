@@ -85,6 +85,16 @@ static void update_evqueue(ezk_window* win) {
   }
 } 
 
+void quit_window(ezk_window* win) {
+  ezk_internal_delete_window(win->id);
+  if(win->ev_queue) {
+    free(win->ev_queue);
+  }
+  printf("%d\n", win->id);
+  win->quitted = true;
+  win->quit_cb(win->id);
+}
+
 EZKAPI ezk_win_id ezk_create_window(ezk_win_desc desc) {
   ezk_window* win = malloc(sizeof(ezk_window));
   if (!win) {return -1;}
@@ -94,31 +104,38 @@ EZKAPI ezk_win_id ezk_create_window(ezk_win_desc desc) {
   win->pos = desc.pos;
   win->dims = desc.dims;
   win->name = desc.name;
+  win->create_cb = desc.create_cb;
+  win->event_cb = desc.event_cb;
+  win->quit_cb = desc.quit_cb;
 
   ezk_internal_create_window(win, desc);
+
+  win->create_cb(win->id);
 
   return win->id;
 }
 
-EZKAPI void ezk_delete_window(ezk_win_id id) {
+EZKAPI void ezk_free_window(ezk_win_id id) {
   ezk_window* win = windows[id];
-  ezk_internal_delete_window(id);
-  if(win->ev_queue) {
-    free(win->ev_queue);
-  } 
-  if(win->name) {
-    free(win->name);
-  }
 
   realloc_free_ids(free_id_count + 1);
   free_ids[free_id_count] = win->id;
+
+  windows[win->id] = 0; // this means we can skip over deleted windows
+  // don't reduce win count as it describes the length of the windows buffer
 
   free(win);
 
   free_id_count++;
 }
 
-EZKAPI void ezk_free_windows() {
+EZKAPI void ezk_delete_window(ezk_win_id id) {
+  ezk_window* win = windows[id];
+  quit_window(win);
+  ezk_free_window(id);
+}
+
+EZKAPI void ezk_delete_windows() {
   if (free_ids) free(free_ids);
   if(windows) {
     for(ezk_win_id i = 0; i < win_count; i++) {
@@ -132,17 +149,38 @@ EZKAPI void ezk_free_windows() {
 
 EZKAPI void ezk_update_window(ezk_win_id id) {
   ezk_window* win = windows[id];
+  if(win->quitted) return; // if window has quitted, just dont update it
   update_evqueue(win);
-
   for(int i = 0;i < win->ev_count;i++) { // loop through each event and process it
     ezk_event ev = win->ev_queue[i];
-
     switch (ev.type) {
       case EZK_EVENT_EXIT:
-        ezk_delete_window(id);
+        quit_window(win);
+        break;
+      default:
         break;
     }
+    win->event_cb(id, ev);
+    if(win->quitted) break; // stops processing events after quit
   }
+  if(!win->quitted) { // if it hasnt quitted, clear the event queue, as every event has been processed
+    free(win->ev_queue);
+    win->ev_queue = 0;
+    win->ev_count = 0;
+  }
+}
+
+EZKAPI void ezk_update_windows() {
+  for(int i = 0; i < win_count; i++) {
+    if(!windows[i]) { // if the window was deleted
+      break; // skip it
+    }
+    ezk_update_window(i);
+  }
+}
+
+EZKAPI ezk_bool ezk_window_quitted(ezk_win_id id) {
+  return windows[id]->quitted;
 }
 
 #endif // EZK_WIN_INCL

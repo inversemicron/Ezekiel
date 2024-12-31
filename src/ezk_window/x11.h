@@ -8,7 +8,7 @@ typedef struct {
     Display* display;
     Window parent;
 
-    Window win;
+    Window handle;
     XSetWindowAttributes wa;
     ezk_u32 ev_mask;
 
@@ -21,10 +21,6 @@ typedef struct {
 
 static ezk_x11_window** int_windows;
 static ezk_win_id int_windows_count;
-
-static void translate_key() {
-
-}
 
 static void realloc_windows(ezk_win_id len) {
     if(int_windows) {
@@ -49,7 +45,7 @@ static void set_fullscreen(ezk_x11_window* win, ezk_bool fs) {
     memset(&e, 0, sizeof(XEvent));
 
     e.type = ClientMessage;
-    e.xclient.window = win->win;
+    e.xclient.window = win->handle;
     e.xclient.format = 32;
     e.xclient.message_type = win->NET_WM_STATE;
     e.xclient.data.l[0] = (ezk_u64)fs;
@@ -67,15 +63,15 @@ static void set_fullscreen(ezk_x11_window* win, ezk_bool fs) {
 }
 
 static void show_window(ezk_x11_window* win) {
-    XMapWindow(win->display, win->win);
-    XRaiseWindow(win->display, win->win);
+    XMapWindow(win->display, win->handle);
+    XRaiseWindow(win->display, win->handle);
     XFlush(win->display);
 
     // Wait for the window to be visible (realized)
     XEvent ev;
     do {
         XNextEvent(win->display, &ev);
-    } while (ev.type != MapNotify || ev.xmap.window != win->win);
+    } while (ev.type != MapNotify || ev.xmap.window != win->handle);
 }
 
 static ezk_event translate_event(ezk_x11_window* win, XEvent ev) {
@@ -128,6 +124,9 @@ static ezk_event translate_event(ezk_x11_window* win, XEvent ev) {
                     break;
                 } 
             }
+        case DestroyNotify:
+            translated.type = EZK_EVENT_EXIT;
+            break;
         default:
             // this includes MappingNotify and Selection Events. Might be worth looking into.
             translated.type = EZK_EVENT_UNKNOWN;
@@ -139,6 +138,11 @@ ezk_time get_time() {
     struct timeval tv;
     gettimeofday(&tv,NULL);
     return (ezk_time) {tv.tv_sec, tv.tv_usec}; 
+}
+
+int handle_x_error(Display *display) {
+    fprintf(stderr, "Caught an X error: Code %d\n", 69);
+    return 0;  // Non-zero values might terminate the program
 }
 
 void ezk_internal_create_window(ezk_window* window, ezk_win_desc desc) {
@@ -158,12 +162,13 @@ void ezk_internal_create_window(ezk_window* window, ezk_win_desc desc) {
     win->ev_mask = CWBorderPixel | CWColormap | CWEventMask;
 
     win->wa.colormap = CopyFromParent;
-    win->wa.event_mask = StructureNotifyMask | KeyPressMask | KeyReleaseMask | 
+    win->wa.event_mask = StructureNotifyMask | KeyPressMask | KeyReleaseMask |
                     PointerMotionMask | ButtonPressMask | ButtonReleaseMask |
-                    FocusChangeMask | EnterWindowMask | LeaveWindowMask;
+                    ExposureMask | FocusChangeMask | VisibilityChangeMask |
+                    EnterWindowMask | LeaveWindowMask | PropertyChangeMask;
     win->wa.background_pixmap = CopyFromParent;
 
-    win->win = XCreateWindow(win->display, win->parent, 
+    win->handle = XCreateWindow(win->display, win->parent, 
                                 desc.pos.x, desc.pos.y, 
                                 desc.dims.x , desc.dims.y, 
                                 desc.border_width,
@@ -171,7 +176,13 @@ void ezk_internal_create_window(ezk_window* window, ezk_win_desc desc) {
                                 CopyFromParent, CopyFromParent, 
                                 win->ev_mask, &(win->wa));
 
-    XStoreName(win->display, win->win, desc.name);
+    XStoreName(win->display, win->handle, desc.name);
+
+    Atom protocols[] = {
+        win->WM_DELETE_WINDOW
+    };
+
+    XSetWMProtocols(win->display, win->handle, protocols, 1);
 
     show_window(win);
 
@@ -182,8 +193,10 @@ void ezk_internal_create_window(ezk_window* window, ezk_win_desc desc) {
 
 void ezk_internal_delete_window(ezk_win_id id) {
     ezk_x11_window* win = int_windows[id];
+    XUnmapWindow(win->display, win->handle);
+    XDestroyWindow(win->display, win->handle);
 
-    XDestroyWindow(win->display, win->win);
+    XFlush(win->display);
 }
 
 ezk_u32 ezk_internal_get_event_count(ezk_win_id id) {
