@@ -9,13 +9,13 @@ void on_event(ezk_win_id id, ezk_event ev) {
 }
 
 void on_quit(ezk_win_id id) {
-  printf("AAAA it hurts\n");
+
 }
 
 ezk_win_desc desc = {
   .dims = (ezk_v2_i){900,600},
   .pos = (ezk_v2_i){0,0},
-  .fullscreen = false,
+  .fullscreen = true,
   .name = "ezk_window test",
 
   .bg_type = EZK_WIN_BGTYPE_COPYFROMPARENT,
@@ -34,9 +34,9 @@ ezk_win_desc desc = {
 
 int main(int argc, char** argv) {
   int id1 = ezk_create_window(desc);
-  int id2 = ezk_create_window(desc);
-  while(!(ezk_window_quitted(id1) && ezk_window_quitted(id2))) {
+  while(!ezk_window_quitted(id1)) {
     ezk_update_windows();
   }
+
   return 0;
 }
