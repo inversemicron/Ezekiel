@@ -147,6 +147,14 @@ EZKAPI void ezk_delete_windows() {
   }
 }
 
+EZKAPI void ezk_key_down(ezk_win_id id, ezk_key key) {
+  printf("%d\n", key);
+}
+
+EZKAPI void ezk_key_up(ezk_win_id id, ezk_key key) {
+  
+}
+
 EZKAPI void ezk_update_window(ezk_win_id id) {
   ezk_window* win = windows[id];
   if(win->quitted) return; // if window has quitted, just dont update it
@@ -154,6 +162,14 @@ EZKAPI void ezk_update_window(ezk_win_id id) {
   for(int i = 0;i < win->ev_count;i++) { // loop through each event and process it
     ezk_event ev = win->ev_queue[i];
     switch (ev.type) {
+      case EZK_EVENT_KEYDOWN:
+        ezk_key_down(id,ev.key.key);
+        ezk_key_down(id,ev.key.key_mod);
+        break;
+      case EZK_EVENT_KEYUP:
+        ezk_key_up(id,ev.key.key);
+        ezk_key_up(id,ev.key.key_mod);
+        break;
       case EZK_EVENT_EXIT:
         quit_window(win);
         break;

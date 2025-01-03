@@ -15,7 +15,7 @@ void on_quit(ezk_win_id id) {
 ezk_win_desc desc = {
   .dims = (ezk_v2_i){900,600},
   .pos = (ezk_v2_i){0,0},
-  .fullscreen = true,
+  .fullscreen = false,
   .name = "ezk_window test",
 
   .bg_type = EZK_WIN_BGTYPE_COPYFROMPARENT,
