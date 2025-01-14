@@ -90,7 +90,6 @@ void quit_window(ezk_window* win) {
   if(win->ev_queue) {
     free(win->ev_queue);
   }
-  printf("%d\n", win->id);
   win->quitted = true;
   win->quit_cb(win->id);
 }
@@ -98,7 +97,7 @@ void quit_window(ezk_window* win) {
 EZKAPI ezk_win_id ezk_create_window(ezk_win_desc desc) {
   ezk_window* win = malloc(sizeof(ezk_window));
   if (!win) {return -1;}
-  memset(win, 0, sizeof(ezk_window)); // Clear the structure
+  //memset(win, 0, sizeof(ezk_window)); // Clear the structure
   win->id = alloc_window_id(win); // Get our ID
 
   win->pos = desc.pos;
@@ -147,11 +146,11 @@ EZKAPI void ezk_delete_windows() {
   }
 }
 
-EZKAPI void ezk_key_down(ezk_win_id id, ezk_key key) {
-  printf("%d\n", key);
+EZKAPI void ezk_key_down(ezk_window* win, ezk_key key) {
+  //printf("%d\n", key);
 }
 
-EZKAPI void ezk_key_up(ezk_win_id id, ezk_key key) {
+EZKAPI void ezk_key_up(ezk_window* id, ezk_key key) {
   
 }
 
@@ -163,12 +162,10 @@ EZKAPI void ezk_update_window(ezk_win_id id) {
     ezk_event ev = win->ev_queue[i];
     switch (ev.type) {
       case EZK_EVENT_KEYDOWN:
-        ezk_key_down(id,ev.key.key);
-        ezk_key_down(id,ev.key.key_mod);
+        ezk_key_down(win,ev.key.key);
         break;
       case EZK_EVENT_KEYUP:
-        ezk_key_up(id,ev.key.key);
-        ezk_key_up(id,ev.key.key_mod);
+        ezk_key_up(win,ev.key.key);
         break;
       case EZK_EVENT_EXIT:
         quit_window(win);

@@ -42,7 +42,7 @@ static void init_atoms(ezk_x11_window* win) {
 static void set_fullscreen(ezk_x11_window* win, ezk_bool fs) {
     XEvent e;
 
-    memset(&e, 0, sizeof(XEvent));
+    //memset(&e, 0, sizeof(XEvent));
 
     e.type = ClientMessage;
     e.xclient.window = win->handle;
@@ -76,10 +76,14 @@ static void show_window(ezk_x11_window* win) {
 
 static ezk_event translate_event(ezk_x11_window* win, XEvent ev) {
     ezk_event translated;
+
+    Atom message_type; // for client events
+
     switch (ev.type) {
         case KeyPress:
             translated.type = EZK_EVENT_KEYDOWN;
             translated.key.key = ev.xkey.keycode; // THIS DOESNT WORK RIGHT NOW AS IT ISN'T AN ezk_key
+            printf("Code: %d, Keysym: %lu, Key: %s\n", ev.xkey.keycode, XLookupKeysym(&ev.xkey, 0),XKeysymToString(XLookupKeysym(&ev.xkey, 0)));
             break;
         case KeyRelease:
             translated.type = EZK_EVENT_KEYUP;
@@ -117,7 +121,7 @@ static ezk_event translate_event(ezk_x11_window* win, XEvent ev) {
             translated.type = EZK_EVENT_FOCUSOUT;
             break;
         case ClientMessage:
-            Atom message_type = ev.xclient.message_type;
+            message_type = ev.xclient.message_type;
             if (message_type == win->WM_PROTOCOLS){
                 if(ev.xclient.data.l[0] == win->WM_DELETE_WINDOW) {
                     translated.type = EZK_EVENT_EXIT;
@@ -139,12 +143,6 @@ ezk_time get_time() {
     gettimeofday(&tv,NULL);
     return (ezk_time) {tv.tv_sec, tv.tv_usec}; 
 }
-
-int handle_x_error(Display *display) {
-    fprintf(stderr, "Caught an X error: Code %d\n", 69);
-    return 0;  // Non-zero values might terminate the program
-}
-
 void ezk_internal_create_window(ezk_window* window, ezk_win_desc desc) {
     if(window->id >= int_windows_count) { // this is using the same ids as are used in ezk_window.
         realloc_windows(window->id + 1);
