@@ -1,12 +1,14 @@
-#include "../src/ezekiel.h"
+#include "../include/ezekiel.h"
+
+#include <stdio.h>
 
 void on_create(ezk_win_id id) {
   printf("New window id: %d\n", id);
 }
 
 void on_event(ezk_win_id id, ezk_event ev) {
-  ev.any.win_id = id;
   id = ev.any.win_id;
+  ev.any.win_id = id;
 }
 
 void on_quit(ezk_win_id id) {

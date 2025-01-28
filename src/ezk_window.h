@@ -18,6 +18,8 @@
   #include "./ezk_window/x11.h"
 #endif
 
+#include "./ezk_window_common.h"
+
 // Externs (from platform-specific headers)
 // This section isn't necessary as header already exist but serves to document
 // platform-specific functions. 
