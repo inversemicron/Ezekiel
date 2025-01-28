@@ -356,133 +356,135 @@ ezk_ckey ezk_get_ckey_from_base(ezk_key base, ezk_mod_key mods) {
   return ckey_lookup[base][altgr_down(mods) ? 1 : 0]; // NEEDS WORK: what if shift and altgr are down at the same time? 
 }
 
-#define EZK_X11_KC_LOOKUP \
-  EZK_X11_LT_XM(SPACE,          32) \
-  EZK_X11_LT_XM(HASH,           35) \
-  EZK_X11_LT_XM(SINGLEQUOTE,    39) \
-  EZK_X11_LT_XM(COMMA,          44) \
-  EZK_X11_LT_XM(HYPHEN,         45) \
-  EZK_X11_LT_XM(PERIOD,         46) \
-  EZK_X11_LT_XM(SLASH,          47) \
-  EZK_X11_LT_XM(ZERO,           48) \
-  EZK_X11_LT_XM(ONE,            49) \
-  EZK_X11_LT_XM(TWO,            50) \
-  EZK_X11_LT_XM(THREE,          51) \
-  EZK_X11_LT_XM(FOUR,           52) \
-  EZK_X11_LT_XM(FIVE,           53) \
-  EZK_X11_LT_XM(SIX,            54) \
-  EZK_X11_LT_XM(SEVEN,          55) \
-  EZK_X11_LT_XM(EIGHT,          56) \
-  EZK_X11_LT_XM(NINE,           57) \
-  EZK_X11_LT_XM(SEMICOLON,      59) \
-  EZK_X11_LT_XM(EQUALS,         61) \
-  EZK_X11_LT_XM(OPENBRACKETSQ,  91) \
-  EZK_X11_LT_XM(BACKSLASH,      92) \
-  EZK_X11_LT_XM(CLOSEBRACKETSQ, 93) \
-  EZK_X11_LT_XM(GRAVE,          96) \
-  EZK_X11_LT_XM(a,              97) \
-  EZK_X11_LT_XM(b,              98) \
-  EZK_X11_LT_XM(c,              99) \
-  EZK_X11_LT_XM(d,              100) \
-  EZK_X11_LT_XM(e,              101) \
-  EZK_X11_LT_XM(f,              102) \
-  EZK_X11_LT_XM(g,              103) \
-  EZK_X11_LT_XM(h,              104) \
-  EZK_X11_LT_XM(i,              105) \
-  EZK_X11_LT_XM(j,              106) \
-  EZK_X11_LT_XM(k,              107) \
-  EZK_X11_LT_XM(l,              108) \
-  EZK_X11_LT_XM(m,              109) \
-  EZK_X11_LT_XM(n,              110) \
-  EZK_X11_LT_XM(o,              111) \
-  EZK_X11_LT_XM(p,              112) \
-  EZK_X11_LT_XM(q,              113) \
-  EZK_X11_LT_XM(r,              114) \
-  EZK_X11_LT_XM(s,              115) \
-  EZK_X11_LT_XM(t,              116) \
-  EZK_X11_LT_XM(u,              117) \
-  EZK_X11_LT_XM(v,              118) \
-  EZK_X11_LT_XM(w,              119) \
-  EZK_X11_LT_XM(x,              120) \
-  EZK_X11_LT_XM(y,              121) \
-  EZK_X11_LT_XM(z,              122) \
-  EZK_X11_LT_XM(DELETE,         65535) \
-  EZK_X11_LT_XM(SHIFT,          65505) \
-  EZK_X11_LT_XM(CONTROL,        65507) \
-  EZK_X11_LT_XM(ALT,            65513) \
-  EZK_X11_LT_XM(ALTGR,          65027) \
-  EZK_X11_LT_XM(ESCAPE,         65307) \
-  EZK_X11_LT_XM(PRINTSCREEN,    65377) \
-  EZK_X11_LT_XM(CAPSLOCK,       65509) \
-  EZK_X11_LT_XM(TAB,            65289) \
-  EZK_X11_LT_XM(NUMLOCK,        65047) \
-  EZK_X11_LT_XM(SCROLLLOCK,     65300) \
-  EZK_X11_LT_XM(PAGEUP,         65365) \
-  EZK_X11_LT_XM(PAGEDOWN,       65366) \
-  EZK_X11_LT_XM(INSERT,         65379) \
-  EZK_X11_LT_XM(HOME,           65360) \
-  EZK_X11_LT_XM(END,            65367) \
-  EZK_X11_LT_XM(ENTER,          65293) \
-  EZK_X11_LT_XM(BACKSPACE,      65288) \
-  EZK_X11_LT_XM(PAUSEBREAK,     65299) \
-  EZK_X11_LT_XM(MENU,           65438) \
-  EZK_X11_LT_XM(NUMPAD0,        65438) \
-  EZK_X11_LT_XM(NUMPAD1,        65436) \
-  EZK_X11_LT_XM(NUMPAD2,        65433) \
-  EZK_X11_LT_XM(NUMPAD3,        65435) \
-  EZK_X11_LT_XM(NUMPAD4,        65430) \
-  EZK_X11_LT_XM(NUMPAD5,        65437) \
-  EZK_X11_LT_XM(NUMPAD6,        65432) \
-  EZK_X11_LT_XM(NUMPAD7,        65429) \
-  EZK_X11_LT_XM(NUMPAD8,        65431) \
-  EZK_X11_LT_XM(NUMPAD9,        65434) \
-  EZK_X11_LT_XM(NUMPADPOINT,    65439) \
-  EZK_X11_LT_XM(NUMPADDIVIDE,   65455) \
-  EZK_X11_LT_XM(NUMPADMULTIPLY, 65450) \
-  EZK_X11_LT_XM(NUMPADSUBTRACT, 65453) \
-  EZK_X11_LT_XM(NUMPADPLUS,     65451) \
-  EZK_X11_LT_XM(NUMPADENTER,    65421) \
-  EZK_X11_LT_XM(ARROWUP,        65362) \
-  EZK_X11_LT_XM(ARROWDOWN,      65364) \
-  EZK_X11_LT_XM(ARROWLEFT,      65361) \
-  EZK_X11_LT_XM(ARROWRIGHT,     65363) \
-  EZK_X11_LT_XM(F1,             65470) \
-  EZK_X11_LT_XM(F2,             65471) \
-  EZK_X11_LT_XM(F3,             65472) \
-  EZK_X11_LT_XM(F4,             65473) \
-  EZK_X11_LT_XM(F5,             65474) \
-  EZK_X11_LT_XM(F6,             65475) \
-  EZK_X11_LT_XM(F7,             65476) \
-  EZK_X11_LT_XM(F8,             65477) \
-  EZK_X11_LT_XM(F9,             65478) \
-  EZK_X11_LT_XM(F10,            65479) \
-  EZK_X11_LT_XM(F11,            65480) \
-  EZK_X11_LT_XM(F12,            65481) \
-  EZK_X11_LT_XM(F13,            65482) \
-  EZK_X11_LT_XM(F14,            65483) \
-  EZK_X11_LT_XM(F15,            65484) \
-  EZK_X11_LT_XM(F16,            65485) \
-  EZK_X11_LT_XM(F17,            65486) \
-  EZK_X11_LT_XM(F18,            65487) \
-  EZK_X11_LT_XM(F19,            65488) \
-  EZK_X11_LT_XM(F20,            65489) \
-  EZK_X11_LT_XM(F21,            65490) \
-  EZK_X11_LT_XM(F22,            65491) \
-  EZK_X11_LT_XM(F23,            65492) \
-  EZK_X11_LT_XM(F24,            65493) \
-  EZK_X11_LT_XM(F25,            65494) \
-  EZK_X11_LT_XM(F26,            65495) \
-  EZK_X11_LT_XM(F27,            65496) \
-  EZK_X11_LT_XM(F28,            65497) \
-  EZK_X11_LT_XM(F29,            65498) \
-  EZK_X11_LT_XM(F30,            65499) \
-  EZK_X11_LT_XM(F31,            65500) \
-  EZK_X11_LT_XM(F32,            65501) \
-  EZK_X11_LT_XM(F33,            65502) \
-  EZK_X11_LT_XM(F34,            65503) \
-  EZK_X11_LT_XM(F35,            65504)
+// Note these are hardware values, so a layout can be applied later
 
-//ezk_key ezk_get_x11_key(int key)  {
-//  if (key < 0 || key >= EZK_KEY_COUNT) return EZK_KEY_NULL;
-//  return x11_kc_lookup[key];
-//}
+#define EZK_X11_KC_LOOKUP \
+  EZK_X11_LT_XM(SPACE,          65) \
+  EZK_X11_LT_XM(HASH,           51) \
+  EZK_X11_LT_XM(SINGLEQUOTE,    48) \
+  EZK_X11_LT_XM(COMMA,          59) \
+  EZK_X11_LT_XM(HYPHEN,         20) \
+  EZK_X11_LT_XM(PERIOD,         60) \
+  EZK_X11_LT_XM(SLASH,          61) \
+  EZK_X11_LT_XM(ZERO,           19) \
+  EZK_X11_LT_XM(ONE,            10) \
+  EZK_X11_LT_XM(TWO,            11) \
+  EZK_X11_LT_XM(THREE,          12) \
+  EZK_X11_LT_XM(FOUR,           13) \
+  EZK_X11_LT_XM(FIVE,           14) \
+  EZK_X11_LT_XM(SIX,            15) \
+  EZK_X11_LT_XM(SEVEN,          16) \
+  EZK_X11_LT_XM(EIGHT,          17) \
+  EZK_X11_LT_XM(NINE,           18) \
+  EZK_X11_LT_XM(SEMICOLON,      47) \
+  EZK_X11_LT_XM(EQUALS,         21) \
+  EZK_X11_LT_XM(OPENBRACKETSQ,  34) \
+  EZK_X11_LT_XM(BACKSLASH,      94) \
+  EZK_X11_LT_XM(CLOSEBRACKETSQ, 35) \
+  EZK_X11_LT_XM(GRAVE,          49) \
+  EZK_X11_LT_XM(a,              38) \
+  EZK_X11_LT_XM(b,              56) \
+  EZK_X11_LT_XM(c,              54) \
+  EZK_X11_LT_XM(d,              40) \
+  EZK_X11_LT_XM(e,              26) \
+  EZK_X11_LT_XM(f,              41) \
+  EZK_X11_LT_XM(g,              42) \
+  EZK_X11_LT_XM(h,              43) \
+  EZK_X11_LT_XM(i,              31) \
+  EZK_X11_LT_XM(j,              44) \
+  EZK_X11_LT_XM(k,              45) \
+  EZK_X11_LT_XM(l,              46) \
+  EZK_X11_LT_XM(m,              58) \
+  EZK_X11_LT_XM(n,              57) \
+  EZK_X11_LT_XM(o,              32) \
+  EZK_X11_LT_XM(p,              33) \
+  EZK_X11_LT_XM(q,              24) \
+  EZK_X11_LT_XM(r,              27) \
+  EZK_X11_LT_XM(s,              39) \
+  EZK_X11_LT_XM(t,              28) \
+  EZK_X11_LT_XM(u,              30) \
+  EZK_X11_LT_XM(v,              55) \
+  EZK_X11_LT_XM(w,              25) \
+  EZK_X11_LT_XM(x,              53) \
+  EZK_X11_LT_XM(y,              29) \
+  EZK_X11_LT_XM(z,              52) \
+  EZK_X11_LT_XM(DELETE,        119) \
+  EZK_X11_LT_XM(SHIFT,          50) \
+  EZK_X11_LT_XM(CONTROL,        37) \
+  EZK_X11_LT_XM(ALT,            64) \
+  EZK_X11_LT_XM(ALTGR,         108) \
+  EZK_X11_LT_XM(ESCAPE,          9) \
+  EZK_X11_LT_XM(PRINTSCREEN,     0) \
+  EZK_X11_LT_XM(CAPSLOCK,       66) \
+  EZK_X11_LT_XM(TAB,            23) \
+  EZK_X11_LT_XM(NUMLOCK,        77) \
+  EZK_X11_LT_XM(SCROLLLOCK,     78) \
+  EZK_X11_LT_XM(PAGEUP,        112) \
+  EZK_X11_LT_XM(PAGEDOWN,      117) \
+  EZK_X11_LT_XM(INSERT,        118) \
+  EZK_X11_LT_XM(HOME,          110) \
+  EZK_X11_LT_XM(END,           115) \
+  EZK_X11_LT_XM(ENTER,          36) \
+  EZK_X11_LT_XM(BACKSPACE,      22) \
+  EZK_X11_LT_XM(PAUSEBREAK,    127) \
+  EZK_X11_LT_XM(MENU,          135) \
+  EZK_X11_LT_XM(NUMPAD0,        90) \
+  EZK_X11_LT_XM(NUMPAD1,        87) \
+  EZK_X11_LT_XM(NUMPAD2,        88) \
+  EZK_X11_LT_XM(NUMPAD3,        89) \
+  EZK_X11_LT_XM(NUMPAD4,        83) \
+  EZK_X11_LT_XM(NUMPAD5,        84) \
+  EZK_X11_LT_XM(NUMPAD6,        85) \
+  EZK_X11_LT_XM(NUMPAD7,        79) \
+  EZK_X11_LT_XM(NUMPAD8,        80) \
+  EZK_X11_LT_XM(NUMPAD9,        81) \
+  EZK_X11_LT_XM(NUMPADPOINT,    91) \
+  EZK_X11_LT_XM(NUMPADDIVIDE,  106) \
+  EZK_X11_LT_XM(NUMPADMULTIPLY, 63) \
+  EZK_X11_LT_XM(NUMPADSUBTRACT, 82) \
+  EZK_X11_LT_XM(NUMPADPLUS,     86) \
+  EZK_X11_LT_XM(NUMPADENTER,   104) \
+  EZK_X11_LT_XM(ARROWUP,       111) \
+  EZK_X11_LT_XM(ARROWDOWN,     116) \
+  EZK_X11_LT_XM(ARROWLEFT,     113) \
+  EZK_X11_LT_XM(ARROWRIGHT,    114) \
+  EZK_X11_LT_XM(F1,             67) \
+  EZK_X11_LT_XM(F2,             68) \
+  EZK_X11_LT_XM(F3,             69) \
+  EZK_X11_LT_XM(F4,             70) \
+  EZK_X11_LT_XM(F5,             71) \
+  EZK_X11_LT_XM(F6,             72) \
+  EZK_X11_LT_XM(F7,             73) \
+  EZK_X11_LT_XM(F8,             74) \
+  EZK_X11_LT_XM(F9,             75) \
+  EZK_X11_LT_XM(F10,            76) \
+  EZK_X11_LT_XM(F11,            95) \
+  EZK_X11_LT_XM(F12,            96) 
+
+#define EZK_X11_KEY_LT_LENGTH 136 // needs to be updated if more keys are added
+
+#define EZK_X11_LT_XM(k,i) [i] = EZK_KEY_##k,
+
+static const ezk_key x11_ezk_lt[EZK_X11_KEY_LT_LENGTH] = {
+  EZK_X11_KC_LOOKUP
+};
+
+#undef EZK_X11_LT_XM
+#define EZK_X11_LT_XM(k,i) [EZK_KEY_##k] = i,
+
+static const ezk_key ezk_x11_lt[EZK_X11_KEY_LT_LENGTH] = {
+  EZK_X11_KC_LOOKUP
+};
+
+#undef EZK_X11_LT_XM
+
+ezk_key ezk_key_ezk_to_x11(int keycode)  {
+  if (keycode < 0 || keycode >= EZK_X11_KEY_LT_LENGTH) return EZK_KEY_NULL;
+  return ezk_x11_lt[keycode];
+}
+
+
+ezk_key ezk_key_x11_to_ezk(int keycode)  {
+  if (keycode < 0 || keycode >= EZK_X11_KEY_LT_LENGTH) return EZK_KEY_NULL;
+  return x11_ezk_lt[keycode];
+}

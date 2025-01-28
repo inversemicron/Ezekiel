@@ -5,16 +5,19 @@ void on_create(ezk_win_id id) {
 }
 
 void on_event(ezk_win_id id, ezk_event ev) {
-
+  ev.any.win_id = id;
+  id = ev.any.win_id;
 }
 
 void on_quit(ezk_win_id id) {
-
+  printf("Killing window id: %d\n", id);
 }
 
 ezk_win_desc desc = {
-  .dims = (ezk_v2_i){900,600},
-  .pos = (ezk_v2_i){0,0},
+  .dims.x = 900, 
+  .dims.y = 600,
+  .pos.x = 0,
+  .pos.y = 0,
   .fullscreen = false,
   .name = "ezk_window test",
 
@@ -28,11 +31,11 @@ ezk_win_desc desc = {
   .border_width = 10,
 
   .create_cb = on_create,
-  .event_cb = on_event,
+  //.event_cb = on_event,
   .quit_cb = on_quit
 };
 
-int main(int argc, char** argv) {
+int main() {
   int id1 = ezk_create_window(desc);
   while(!ezk_window_quitted(id1)) {
     ezk_update_windows();

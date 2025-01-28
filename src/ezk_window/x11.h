@@ -82,20 +82,20 @@ static ezk_event translate_event(ezk_x11_window* win, XEvent ev) {
     switch (ev.type) {
         case KeyPress:
             translated.type = EZK_EVENT_KEYDOWN;
-            translated.key.key = ev.xkey.keycode; // THIS DOESNT WORK RIGHT NOW AS IT ISN'T AN ezk_key
-            printf("Code: %d, Keysym: %lu, Key: %s\n", ev.xkey.keycode, XLookupKeysym(&ev.xkey, 0),XKeysymToString(XLookupKeysym(&ev.xkey, 0)));
+            translated.key.key = ezk_key_x11_to_ezk(ev.xkey.keycode);
+            printf("Code: %d, Keysym: %lu, Key: %s, EZK key: %d, EZK key name: %s\n", ev.xkey.keycode, XLookupKeysym(&ev.xkey, 0),XKeysymToString(XLookupKeysym(&ev.xkey, 0)),ezk_key_x11_to_ezk(ev.xkey.keycode),ezk_key_names[ezk_key_x11_to_ezk(ev.xkey.keycode)]);
             break;
         case KeyRelease:
             translated.type = EZK_EVENT_KEYUP;
-            translated.key.key = ev.xkey.keycode; // ditto
+            translated.key.key = ezk_key_x11_to_ezk(ev.xkey.keycode); 
             break;
         case ButtonPress:
             translated.type = EZK_EVENT_BUTTONDOWN;
-            translated.button.button = ev.xbutton.button; // ditto
+            translated.button.button = ev.xbutton.button;
             break;
         case ButtonRelease:
             translated.type = EZK_EVENT_BUTTONUP;
-            translated.button.button = ev.xbutton.button; // ditto
+            translated.button.button = ev.xbutton.button; 
             break;
         case MotionNotify:
             translated.type = EZK_EVENT_MOUSEMOVE;
@@ -123,11 +123,11 @@ static ezk_event translate_event(ezk_x11_window* win, XEvent ev) {
         case ClientMessage:
             message_type = ev.xclient.message_type;
             if (message_type == win->WM_PROTOCOLS){
-                if(ev.xclient.data.l[0] == win->WM_DELETE_WINDOW) {
+                if(ev.xclient.data.l[0] == (ezk_i64)win->WM_DELETE_WINDOW) {
                     translated.type = EZK_EVENT_EXIT;
-                    break;
                 } 
             }
+            break;
         case DestroyNotify:
             translated.type = EZK_EVENT_EXIT;
             break;

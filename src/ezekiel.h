@@ -10,7 +10,7 @@
   #define EZKAPI __attribute__((visibility("default")))
 #endif
 
-#ifndef EZKAPI
+#ifndef EZKAPI // we are compiling the library in place
   #define EZKAPI
   #define EZK_INCLUDES
 #endif 
@@ -20,3 +20,5 @@
 #endif
 
 #endif // EZK_INCL
+
+static const int make_iso_compilers_happy;
