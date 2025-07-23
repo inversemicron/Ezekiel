@@ -26,7 +26,7 @@ void on_event(ezk_win_id id, ezk_event ev) {
         ezk_window_set_pos(id, (ezk_v2_i){10,0}, true);
         break;
       case EZK_KEY_x: 
-        ezk_quit_window(id);
+        ezk_window_quit(id);
         break;
     }
   }
@@ -54,14 +54,14 @@ ezk_win_desc desc = {
 };
 
 int main() {
-  int id1 = ezk_create_window(desc);
-  int id2 = ezk_create_window(desc);
+  int id1 = ezk_window_create(desc);
+  int id2 = ezk_window_create(desc);
   while(!ezk_window_quitted(id1) || !ezk_window_quitted(id2)) {
     ezk_update_windows();
   }
   
-  ezk_free_window(id1);
-  ezk_free_window(id2);
+  ezk_window_free(id1);
+  ezk_window_free(id2);
 
   return 0;
 }

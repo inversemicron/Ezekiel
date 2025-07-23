@@ -90,7 +90,7 @@ static void quit_window(ezk_window* win) {
     win->quit_cb(win->id);
 }
 
-EZKAPI ezk_win_id ezk_create_window(ezk_win_desc desc) {
+EZKAPI ezk_win_id ezk_window_create(ezk_win_desc desc) {
   ezk_window* win = malloc(sizeof(ezk_window));
   if (!win) {return -1;}
   //memset(win, 0, sizeof(ezk_window)); // Clear the structure
@@ -111,7 +111,7 @@ EZKAPI ezk_win_id ezk_create_window(ezk_win_desc desc) {
   return win->id;
 }
 
-EZKAPI void ezk_free_window(ezk_win_id id) {
+EZKAPI void ezk_window_free(ezk_win_id id) {
   ezk_window* win = windows[id];
 
   realloc_free_ids(free_id_count + 1);
@@ -125,20 +125,20 @@ EZKAPI void ezk_free_window(ezk_win_id id) {
   free_id_count++;
 }
 
-EZKAPI void ezk_quit_window(ezk_win_id id) {
+EZKAPI void ezk_window_quit(ezk_win_id id) {
   windows[id]->quitted = true; // quits next update
 }
 
 // The next two functions can be used to manually press keys
-EZKAPI void ezk_key_down(ezk_window* win, ezk_key key) {
+EZKAPI void ezk_window_key_down(ezk_window* win, ezk_key key) {
   win->keyboard[key] = true;
 }
 
-EZKAPI void ezk_key_up(ezk_window* win, ezk_key key) {
+EZKAPI void ezk_window_key_up(ezk_window* win, ezk_key key) {
   win->keyboard[key] = false;
 }
 
-EZKAPI void ezk_update_window(ezk_win_id id) {
+EZKAPI void ezk_window_update(ezk_win_id id) {
   ezk_window* win = windows[id];
   if(win->quitted) return; // if window has quitted, just dont update it
   update_evqueue(win);
@@ -180,7 +180,7 @@ EZKAPI void ezk_update_window(ezk_win_id id) {
   }
 }
 
-EZKAPI void ezk_update_windows() {
+EZKAPI void ezk_window_update_multiple() {
   for(ezk_win_id i = 0; i < win_count; i++) {
     if(!windows[i]) { // if the window was deleted
       break; // skip it
