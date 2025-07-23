@@ -162,13 +162,6 @@ typedef enum {
 } ezk_key;
 #undef EZK_KEY_XM
 
-#define EZK_KEY_XM(key,name) name,
-const char* ezk_key_names[] = {
-  "NULL",
-  EZK_KEYS_XMACRO
-};
-#undef EZK_KEY_XM
-
 // ckeys - complex keys - are keys that require a modifier to type
 // arg 1 is the base key, 
 // arg 2 is whether a key is made when shift is pressed down
@@ -321,14 +314,7 @@ typedef enum {
 #define EZK_ACTIVE_1(name) #name,
 
 #undef EZK_CKEY_XM
-#define EZK_CKEY_XM(base,shift,s_type,s_name,altgr,a_type,a_name)  EZK_ACTIVE_KEY(s_type,shift) EZK_ACTIVE_KEY(a_type,altgr)
 
-const char* ezk_ckey_names[] = {
-  "NULL",
-  EZK_CKEYS_XMACRO
-};
-
-#undef EZK_CKEY_XM
 #define EZK_CKEY_XM(base,shift,s_type,s_name,altgr,a_type,a_name) {EZK_ACTIVE_KEY(s_type,shift), EZK_ACTIVE_KEY(a_type,altgr)},
 
 #undef EZK_ACTIVE_0
@@ -349,12 +335,7 @@ static const ezk_ckey ckey_lookup[EZK_KEY_COUNT + 1][2] = {
 #undef EZK_ACTIVE_1
 #undef EZK_ACTIVE_0
 
-EZKAPI ezk_ckey ezk_get_ckey_from_base(ezk_key base, ezk_mod_key mods) {
-  if(!(altgr_down(mods) || shift_down(mods))) {
-    return EZK_CKEY_NULL;
-  }
-  return ckey_lookup[base][altgr_down(mods) ? 1 : 0]; // NEEDS WORK: what if shift and altgr are down at the same time? 
-}
+EZKAPI ezk_ckey ezk_get_ckey_from_base(ezk_key base, ezk_mod_key mods);
 
 // Note these are hardware values, so a layout can be applied later
 
@@ -478,13 +459,6 @@ static const ezk_key ezk_x11_lt[EZK_X11_KEY_LT_LENGTH] = {
 
 #undef EZK_X11_LT_XM
 
-EZKAPI ezk_key ezk_key_ezk_to_x11(int keycode)  {
-  if (keycode < 0 || keycode >= EZK_X11_KEY_LT_LENGTH) return EZK_KEY_NULL;
-  return ezk_x11_lt[keycode];
-}
+EZKAPI ezk_key ezk_key_ezk_to_x11(int keycode);
 
-
-EZKAPI ezk_key ezk_key_x11_to_ezk(int keycode)  {
-  if (keycode < 0 || keycode >= EZK_X11_KEY_LT_LENGTH) return EZK_KEY_NULL;
-  return x11_ezk_lt[keycode];
-}
+EZKAPI ezk_key ezk_key_x11_to_ezk(int keycode);

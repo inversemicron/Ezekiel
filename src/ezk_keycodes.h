@@ -8,6 +8,7 @@
 
 #include "ezk_primitives.h"
 
+
 typedef enum {
 EZK_MOD_SHIFT    = 1 << 0,
 EZK_MOD_ALTGR    = 1 << 1,

@@ -1,6 +1,7 @@
 #ifndef EZK_WIN_INCL
 #define EZK_WIN_INCL
 
+#include "./ezk_api.h"
 #include "./ezk_platform.h"
 #include "./ezk_keycodes.h"
 #include "./ezk_primitives.h"
@@ -42,12 +43,14 @@ typedef struct {
   ezk_event_type type;
   ezk_win_id win_id;
   ezk_time time;
+  ezk_u32 index; // in the event queue
 } ezk_event_any; // note changing this struct requires changing all other event structures
 
 typedef struct {
   ezk_event_type type;
   ezk_win_id win_id;
   ezk_time time;
+  ezk_u32 index;
   ezk_key key; // without modifiers
   ezk_key key_mod; // with modifiers
   ezk_mod_key mods;
@@ -57,6 +60,7 @@ typedef struct {
   ezk_event_type type;
   ezk_win_id win_id;
   ezk_time time;
+  ezk_u32 index;
   ezk_button button;
   ezk_v2_i mouse;
 } ezk_event_button;
@@ -65,6 +69,7 @@ typedef struct {
   ezk_event_type type;
   ezk_win_id win_id;
   ezk_time time;
+  ezk_u32 index;
   ezk_v2_i mouse_pos;
 } ezk_event_crossing; // mouse entering/leaving window
 
@@ -72,6 +77,7 @@ typedef struct {
   ezk_event_type type;
   ezk_win_id win_id;
   ezk_time time;
+  ezk_u32 index;
   ezk_v2_i mouse_pos;
 } ezk_event_mousemove;
 
@@ -79,6 +85,7 @@ typedef struct {
   ezk_event_type type;
   ezk_win_id win_id;
   ezk_time time;
+  ezk_u32 index;
   ezk_v2_i pos; // window position
   ezk_v2_i dims; // window size
 } ezk_event_dimension;
@@ -111,13 +118,9 @@ typedef struct {
   ezk_u32 bg_color;
   char* bg_image;
 
-  ezk_win_bg_type border_type;
-  ezk_u32 border_color;
-  char* border_image;
-  ezk_u16 border_width;
-
   EZK_CALLBACK(create_cb, void, ezk_win_id id);
   EZK_CALLBACK(event_cb, void, ezk_win_id id, ezk_event ev);
+  EZK_CALLBACK(update_cb, void, ezk_win_id id);
   EZK_CALLBACK(quit_cb, void, ezk_win_id id);
 } ezk_win_desc;
 
@@ -138,6 +141,7 @@ typedef struct {
 
   EZK_CALLBACK(create_cb, void, ezk_win_id id);
   EZK_CALLBACK(event_cb, void, ezk_win_id id, ezk_event ev);
+  EZK_CALLBACK(update_cb, void, ezk_win_id id);
   EZK_CALLBACK(quit_cb, void, ezk_win_id id);
 } ezk_window;
 
@@ -154,6 +158,19 @@ EZKAPI void ezk_update_window(ezk_win_id id);
 
 EZKAPI void ezk_update_windows();
 
+EZKAPI ezk_bool ezk_window_get_fs(ezk_win_id id);
+EZKAPI ezk_v2_i ezk_window_get_dims(ezk_win_id id);
+EZKAPI ezk_v2_i ezk_window_get_pos(ezk_win_id id);
+EZKAPI ezk_string ezk_window_get_name(ezk_win_id id);
+EZKAPI ezk_mouse ezk_window_get_mouse(ezk_win_id id);
+EZKAPI ezk_bool ezk_window_is_key_down(ezk_win_id id, ezk_key key);
 EZKAPI ezk_bool ezk_window_quitted(ezk_win_id id);
+
+EZKAPI void ezk_window_set_fs(ezk_win_id id, ezk_bool fs);
+EZKAPI void ezk_window_flip_fs(ezk_win_id id);
+EZKAPI void ezk_window_set_dims(ezk_win_id id, ezk_v2_i dims, ezk_bool inc);
+EZKAPI void ezk_window_set_pos(ezk_win_id id, ezk_v2_i pos, ezk_bool inc);
+EZKAPI void ezk_window_set_name(ezk_win_id id, ezk_string name);
+EZKAPI void ezk_quit_window(ezk_win_id id);
 
 #endif // EZK_WIN_INCL

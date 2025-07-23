@@ -1,10 +1,12 @@
 #ifndef EZK_PRIMS_INCL
 #define EZK_PRIMS_INCL
 
-typedef enum {
-    false = 0,
-    true = 1
-} ezk_bool;
+//typedef enum {
+//    false = 0,
+//    true = 1
+//} ezk_bool;
+
+typedef bool ezk_bool;
 
 typedef unsigned char ezk_u8;
 typedef unsigned short int ezk_u16;
@@ -36,7 +38,5 @@ typedef struct {
 } ezk_time;
 
 #define EZK_CALLBACK(name, ret, ...)  ret (*name)(__VA_ARGS__)
-
-EZK_CALLBACK(exit_cb,int,short int);
 
 #endif

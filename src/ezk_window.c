@@ -1,8 +1,9 @@
 #ifndef EZK_WIN_INCL
 #define EZK_WIN_INCL
 
+#include "ezk_api.h"
 #include "./ezk_platform.h"
-#include "./ezk_window_common.h"
+#include "./ezk_window/ezk_window.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -17,15 +18,6 @@
 #elif defined(EZK_LINUX)
   #include "./ezk_window/x11.h"
 #endif
-
-#include "./ezk_window_common.h"
-
-// Externs (from platform-specific headers)
-// This section isn't necessary as header already exist but serves to document
-// platform-specific functions. 
-extern void ezk_internal_create_window(ezk_window* win, ezk_win_desc desc);
-extern ezk_u32 ezk_internal_get_event_count(ezk_win_id id);
-extern ezk_event ezk_internal_get_next_event(ezk_win_id id);
 
 // Statics
 static ezk_window** windows;
@@ -65,6 +57,7 @@ static ezk_win_id alloc_window_id(ezk_window* win) {
   return id;
 }
 
+
 static void realloc_evqueue(ezk_window* win) {
   if(win->ev_queue) {
     win->ev_queue = realloc(win->ev_queue, win->ev_count * sizeof(ezk_event));
@@ -85,15 +78,16 @@ static void update_evqueue(ezk_window* win) {
       free(win->ev_queue);
     }
   }
-} 
+}
 
-void quit_window(ezk_window* win) {
+static void quit_window(ezk_window* win) {
   ezk_internal_delete_window(win->id);
   if(win->ev_queue) {
     free(win->ev_queue);
   }
   win->quitted = true;
-  win->quit_cb(win->id);
+  if (win->quit_cb)
+    win->quit_cb(win->id);
 }
 
 EZKAPI ezk_win_id ezk_create_window(ezk_win_desc desc) {
@@ -107,12 +101,13 @@ EZKAPI ezk_win_id ezk_create_window(ezk_win_desc desc) {
   win->name = desc.name;
   win->create_cb = desc.create_cb;
   win->event_cb = desc.event_cb;
+  win->update_cb = desc.update_cb;
   win->quit_cb = desc.quit_cb;
 
   ezk_internal_create_window(win, desc);
-
-  win->create_cb(win->id);
-
+  
+  if(win->create_cb)
+    win->create_cb(win->id);
   return win->id;
 }
 
@@ -130,24 +125,11 @@ EZKAPI void ezk_free_window(ezk_win_id id) {
   free_id_count++;
 }
 
-EZKAPI void ezk_delete_window(ezk_win_id id) {
-  ezk_window* win = windows[id];
-  quit_window(win);
-  ezk_free_window(id);
+EZKAPI void ezk_quit_window(ezk_win_id id) {
+  windows[id]->quitted = true; // quits next update
 }
 
-EZKAPI void ezk_delete_windows() {
-  if (free_ids) free(free_ids);
-  if(windows) {
-    for(ezk_win_id i = 0; i < win_count; i++) {
-      if(windows[i]) {
-        ezk_delete_window(i);
-      }
-    }
-    free(windows);
-  }
-}
-
+// The next two functions can be used to manually press keys
 EZKAPI void ezk_key_down(ezk_window* win, ezk_key key) {
   win->keyboard[key] = true;
 }
@@ -169,8 +151,15 @@ EZKAPI void ezk_update_window(ezk_win_id id) {
       case EZK_EVENT_KEYUP:
         ezk_key_up(win,ev.key.key);
         break;
+      case EZK_EVENT_DIMCHANGE:
+        win->pos = ev.dimension.pos;
+        win->dims = ev.dimension.dims;
+        break;
+      case EZK_EVENT_MOUSEMOVE:
+        win->mouse.pos = ev.mousemove.mouse_pos;
+        break;
       case EZK_EVENT_EXIT:
-        quit_window(win);
+        ezk_quit_window(id);
         break;
       default:
         break;
@@ -179,15 +168,20 @@ EZKAPI void ezk_update_window(ezk_win_id id) {
       win->event_cb(id, ev);
     if(win->quitted) break; // stops processing events after quit
   }
-  if(!win->quitted) { // if it hasnt quitted, clear the event queue, as every event has been processed
+  if(!win->quitted) { 
+    // if it hasn't quitted, clear the event queue, as every event has been processed
     free(win->ev_queue);
     win->ev_queue = 0;
     win->ev_count = 0;
+    if(win->update_cb)
+      win->update_cb(id);
+  } else {
+    quit_window(win);
   }
 }
 
 EZKAPI void ezk_update_windows() {
-  for(int i = 0; i < win_count; i++) {
+  for(ezk_win_id i = 0; i < win_count; i++) {
     if(!windows[i]) { // if the window was deleted
       break; // skip it
     }
@@ -197,6 +191,65 @@ EZKAPI void ezk_update_windows() {
 
 EZKAPI ezk_bool ezk_window_quitted(ezk_win_id id) {
   return windows[id]->quitted;
+}
+
+EZKAPI ezk_bool ezk_window_get_fs(ezk_win_id id) {
+  return windows[id]->fs;
+}
+
+EZKAPI ezk_v2_i ezk_window_get_dims(ezk_win_id id) {
+  return windows[id]->dims;
+}
+
+EZKAPI ezk_v2_i ezk_window_get_pos(ezk_win_id id) {
+  return windows[id]->pos;
+}
+
+EZKAPI ezk_string ezk_window_get_name(ezk_win_id id) {
+  return windows[id]->name;
+}
+
+EZKAPI ezk_mouse ezk_window_get_mouse(ezk_win_id id) {
+  return windows[id]->mouse;
+}
+
+EZKAPI ezk_bool ezk_window_is_key_down(ezk_win_id id, ezk_key key) {
+  return windows[id]->keyboard[key];
+}
+
+EZKAPI void ezk_window_set_fs(ezk_win_id id, ezk_bool fs) {
+  windows[id]->fs = fs;
+  ezk_internal_set_fullscreen(id, fs);
+}
+
+EZKAPI void ezk_window_flip_fs(ezk_win_id id) {
+  windows[id]->fs ^= 1; // flip
+  ezk_internal_set_fullscreen(id, windows[id]->fs);
+}
+
+EZKAPI void ezk_window_set_dims(ezk_win_id id, ezk_v2_i dims, ezk_bool inc) {
+  if(inc) {
+    windows[id]->dims.x += dims.x;
+    windows[id]->dims.y += dims.y; 
+  } else {
+    windows[id]->dims = dims;
+  }  
+  ezk_internal_set_dims(id,windows[id]->dims);
+}
+
+EZKAPI void ezk_window_set_pos(ezk_win_id id, ezk_v2_i pos, ezk_bool inc) {
+  if(inc) {
+    windows[id]->pos.x += pos.x;
+    windows[id]->pos.y += pos.y;
+  } else {
+    windows[id]->pos = pos;
+  }
+  ezk_internal_set_pos(id,windows[id]->pos);
+}
+
+EZKAPI void ezk_window_set_name(ezk_win_id id, ezk_string name) {
+  windows[id]->name = name; // memory unsafe? prev. name is not freed
+  ezk_internal_set_name(id, name);
 }
 
 #endif // EZK_WIN_INCL

@@ -1,10 +1,12 @@
 #include "X11/Xlib.h"
 
-#include "../ezk_window_common.h"
+#include "./ezk_window.h"
 
 #include <sys/time.h>
 
 typedef struct {
+    ezk_win_id id;  
+
     Display* display;
     Window parent;
 
@@ -39,29 +41,6 @@ static void init_atoms(ezk_x11_window* win) {
     win->WM_DELETE_WINDOW = XInternAtom(win->display, "WM_DELETE_WINDOW", False);
 }
 
-static void set_fullscreen(ezk_x11_window* win, ezk_bool fs) {
-    XEvent e;
-
-    //memset(&e, 0, sizeof(XEvent));
-
-    e.type = ClientMessage;
-    e.xclient.window = win->handle;
-    e.xclient.format = 32;
-    e.xclient.message_type = win->NET_WM_STATE;
-    e.xclient.data.l[0] = (ezk_u64)fs;
-    e.xclient.data.l[1] = win->NET_WM_STATE_FS;
-    e.xclient.data.l[2] = 0;
-    e.xclient.data.l[3] = 1;
-    e.xclient.data.l[4] = 0;
-
-    XSendEvent(win->display, win->parent,
-            false,
-            SubstructureNotifyMask | SubstructureRedirectMask,
-            &e);
-       
-    XFlush(win->display);
-}
-
 static void show_window(ezk_x11_window* win) {
     XMapWindow(win->display, win->handle);
     XRaiseWindow(win->display, win->handle);
@@ -83,7 +62,6 @@ static ezk_event translate_event(ezk_x11_window* win, XEvent ev) {
         case KeyPress:
             translated.type = EZK_EVENT_KEYDOWN;
             translated.key.key = ezk_key_x11_to_ezk(ev.xkey.keycode);
-            printf("Code: %d, Keysym: %lu, Key: %s, EZK key: %d, EZK key name: %s\n", ev.xkey.keycode, XLookupKeysym(&ev.xkey, 0),XKeysymToString(XLookupKeysym(&ev.xkey, 0)),ezk_key_x11_to_ezk(ev.xkey.keycode),ezk_key_names[ezk_key_x11_to_ezk(ev.xkey.keycode)]);
             break;
         case KeyRelease:
             translated.type = EZK_EVENT_KEYUP;
@@ -112,7 +90,7 @@ static ezk_event translate_event(ezk_x11_window* win, XEvent ev) {
         case ConfigureNotify: // can't be resized as that has already been checked for
             translated.type = EZK_EVENT_DIMCHANGE;
             translated.dimension.pos = (ezk_v2_i){ev.xconfigure.x, ev.xconfigure.y};
-            translated.dimension.dims = (ezk_v2_i){ev.xconfigure.width, ev.xconfigure.width};
+            translated.dimension.dims = (ezk_v2_i){ev.xconfigure.width, ev.xconfigure.height};
             break;
         case FocusIn:
             translated.type = EZK_EVENT_FOCUSIN;
@@ -143,6 +121,46 @@ ezk_time get_time() {
     gettimeofday(&tv,NULL);
     return (ezk_time) {tv.tv_sec, tv.tv_usec}; 
 }
+
+void ezk_internal_set_fullscreen(ezk_win_id id, ezk_bool fs) {
+    ezk_x11_window* win = int_windows[id];
+    XEvent e;
+
+    memset(&e, 0, sizeof(XEvent));
+
+    e.type = ClientMessage;
+    e.xclient.window = win->handle;
+    e.xclient.format = 32;
+    e.xclient.message_type = win->NET_WM_STATE;
+    e.xclient.data.l[0] = (ezk_u64)fs;
+    e.xclient.data.l[1] = win->NET_WM_STATE_FS;
+    e.xclient.data.l[2] = 0;
+    e.xclient.data.l[3] = 1;
+    e.xclient.data.l[4] = 0;
+
+    XSendEvent(win->display, win->parent,
+            false,
+            SubstructureNotifyMask | SubstructureRedirectMask,
+            &e);
+       
+    XFlush(win->display);
+}
+
+void ezk_internal_set_dims(ezk_win_id id, ezk_v2_i dims) {
+    ezk_x11_window* win = int_windows[id];
+    XResizeWindow(win->display, win->handle, dims.x, dims.y);
+}
+
+void ezk_internal_set_pos(ezk_win_id id, ezk_v2_i pos) {
+    ezk_x11_window* win = int_windows[id];
+    XMoveWindow(win->display, win->handle, pos.x, pos.y - 37); // ???
+}
+
+void ezk_internal_set_name(ezk_win_id id, ezk_string name) {
+    ezk_x11_window* win = int_windows[id];
+    XStoreName(win->display, win->handle, name);
+}
+
 void ezk_internal_create_window(ezk_window* window, ezk_win_desc desc) {
     if(window->id >= int_windows_count) { // this is using the same ids as are used in ezk_window.
         realloc_windows(window->id + 1);
@@ -152,7 +170,14 @@ void ezk_internal_create_window(ezk_window* window, ezk_win_desc desc) {
 
     ezk_x11_window* win = int_windows[window->id];
 
+    win->id = window->id;
     win->display = XOpenDisplay(NULL);
+
+    if(win->display == 0) {
+	fprintf(stderr, "Failed to open X11 display.\n");
+	exit(1);   
+    }
+
     win->parent = DefaultRootWindow(win->display);
 
     init_atoms(win);
@@ -169,12 +194,12 @@ void ezk_internal_create_window(ezk_window* window, ezk_win_desc desc) {
     win->handle = XCreateWindow(win->display, win->parent, 
                                 desc.pos.x, desc.pos.y, 
                                 desc.dims.x , desc.dims.y, 
-                                desc.border_width,
+                                0,
                                 CopyFromParent, 
                                 CopyFromParent, CopyFromParent, 
                                 win->ev_mask, &(win->wa));
-
-    XStoreName(win->display, win->handle, desc.name);
+    
+    ezk_internal_set_name(win->id, desc.name);
 
     Atom protocols[] = {
         win->WM_DELETE_WINDOW
@@ -185,7 +210,7 @@ void ezk_internal_create_window(ezk_window* window, ezk_win_desc desc) {
     show_window(win);
 
     if(desc.fullscreen) {
-        set_fullscreen(win, true);
+        ezk_internal_set_fullscreen(win->id, true);
     }
 }
 
