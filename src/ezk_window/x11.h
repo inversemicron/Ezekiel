@@ -222,13 +222,12 @@ void ezk_internal_delete_window(ezk_win_id id) {
     XFlush(win->display);
 }
 
-ezk_u32 ezk_internal_get_event_count(ezk_win_id id) {
+static ezk_u32 get_event_count(ezk_win_id id) {
     ezk_x11_window* win = int_windows[id];    
     return XEventsQueued(win->display, QueuedAfterFlush);    
 }
 
-ezk_event ezk_internal_get_next_event(ezk_win_id id) {
-    ezk_x11_window* win = int_windows[id];
+static ezk_event get_next_event(ezk_x11_window* win) {
     XEvent event;
     XNextEvent(win->display, &event);
 
@@ -236,4 +235,22 @@ ezk_event ezk_internal_get_next_event(ezk_win_id id) {
     ezk_ev.any.win_id = id;
     ezk_ev.any.time = get_time();
     return ezk_ev;
+}
+
+ezk_event* ezk_internal_update_evqueue(ezk_win_id id) {
+  ezk_x11_window* win = int_windows[id];
+
+  ezk_u32 ev_count = get_event_count(win->id);
+  ezk_event* ev_queue = malloc((ev_count + 1) * sizeof(ezk_event));
+
+  for(ezk_u32 i = 0; i < win->ev_count; i++) {
+    ev_queue[i] = get_next_event(win);
+    if(ev_queue[i].type == EZK_EVENT_EXIT) {
+	  win->ev_count = i + 1;
+	  break; // end the evqueue here
+    }
+  }
+  ev_queue[ev_count - 1] = 0; // null terminator my beloved
+
+  return ev_queue;
 }

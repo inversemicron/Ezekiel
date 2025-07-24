@@ -55,9 +55,9 @@ ezk_win_desc desc = {
 
 int main() {
   int id1 = ezk_window_create(desc);
-  int id2 = ezk_window_create(desc);
+  int id2 = 0;//ezk_window_create(desc);
   while(!ezk_window_quitted(id1) || !ezk_window_quitted(id2)) {
-    ezk_update_windows();
+    ezk_window_update_all();
   }
   
   ezk_window_free(id1);

@@ -57,29 +57,6 @@ static ezk_win_id alloc_window_id(ezk_window* win) {
   return id;
 }
 
-
-static void realloc_evqueue(ezk_window* win) {
-  if(win->ev_queue) {
-    win->ev_queue = realloc(win->ev_queue, win->ev_count * sizeof(ezk_event));
-  } else {
-    win->ev_queue = malloc(win->ev_count * sizeof(ezk_event));
-  }
-}
-
-static void update_evqueue(ezk_window* win) {
-  ezk_u32 start_index = win->ev_count; // where we put new events 
-  ezk_u32 event_count = ezk_internal_get_event_count(win->id);
-
-  win->ev_count += event_count;
-  realloc_evqueue(win);
-  for(ezk_u32 i = 0; i < event_count; i++) {
-    win->ev_queue[start_index + i] = ezk_internal_get_next_event(win->id);
-    if(win->ev_queue[start_index + 1].type == EZK_EVENT_EXIT) {
-      free(win->ev_queue);
-    }
-  }
-}
-
 static void quit_window(ezk_window* win) {
   ezk_internal_delete_window(win->id);
   if(win->ev_queue) {
@@ -99,6 +76,7 @@ EZKAPI ezk_win_id ezk_window_create(ezk_win_desc desc) {
   win->pos = desc.pos;
   win->dims = desc.dims;
   win->name = desc.name;
+  win->quitted = false;
   win->create_cb = desc.create_cb;
   win->event_cb = desc.event_cb;
   win->update_cb = desc.update_cb;
@@ -141,15 +119,17 @@ EZKAPI void ezk_window_key_up(ezk_window* win, ezk_key key) {
 EZKAPI void ezk_window_update(ezk_win_id id) {
   ezk_window* win = windows[id];
   if(win->quitted) return; // if window has quitted, just dont update it
-  update_evqueue(win);
-  for(ezk_u32 i = 0;i < win->ev_count;i++) { // loop through each event and process it
-    ezk_event ev = win->ev_queue[i];
+  ezk_event* ev_queue = ezk_internal_update_evqueue(win->id); // returns null terminated list
+
+  ezk_u32 i = 0;
+  while(ev_queue[i].any.type != EZK_EVENT_NONE) { // loop through each event and process it
+    ezk_event ev = ev_queue[i];
     switch (ev.type) {
       case EZK_EVENT_KEYDOWN:
-        ezk_key_down(win,ev.key.key);
+        ezk_window_key_down(win,ev.key.key);
         break;
       case EZK_EVENT_KEYUP:
-        ezk_key_up(win,ev.key.key);
+        ezk_window_key_up(win,ev.key.key);
         break;
       case EZK_EVENT_DIMCHANGE:
         win->pos = ev.dimension.pos;
@@ -159,7 +139,7 @@ EZKAPI void ezk_window_update(ezk_win_id id) {
         win->mouse.pos = ev.mousemove.mouse_pos;
         break;
       case EZK_EVENT_EXIT:
-        ezk_quit_window(id);
+        ezk_window_quit(id);
         break;
       default:
         break;
@@ -167,25 +147,26 @@ EZKAPI void ezk_window_update(ezk_win_id id) {
     if(win->event_cb) 
       win->event_cb(id, ev);
     if(win->quitted) break; // stops processing events after quit
+
+	i++;
   }
-  if(!win->quitted) { 
-    // if it hasn't quitted, clear the event queue, as every event has been processed
-    free(win->ev_queue);
-    win->ev_queue = 0;
-    win->ev_count = 0;
-    if(win->update_cb)
-      win->update_cb(id);
+  free(ev_queue); // free the evqueue allocated by ezk_internal_update_evqueue
+
+  if(!win->quitted) {
+	if(win->update_cb)
+    	win->update_cb(id);
   } else {
     quit_window(win);
   }
 }
 
-EZKAPI void ezk_window_update_multiple() {
+EZKAPI void ezk_window_update_all() {
   for(ezk_win_id i = 0; i < win_count; i++) {
     if(!windows[i]) { // if the window was deleted
+  	  printf("%i\n",i);
       break; // skip it
     }
-    ezk_update_window(i);
+    ezk_window_update(i);
   }
 }
 

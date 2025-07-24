@@ -28,7 +28,8 @@ typedef enum {
   EZK_EVENT_FOCUSOUT,
   EZK_EVENT_CLIENTMESSAGE, // linux thing, might change
   EZK_EVENT_EXIT,
-  EZK_EVENT_UNKNOWN
+  EZK_EVENT_UNKNOWN,
+  EZK_EVENT_NONE
 } ezk_event_type;
 
 typedef enum {
@@ -146,17 +147,13 @@ typedef struct {
 } ezk_window;
 
 
-EZKAPI ezk_win_id ezk_create_window(ezk_win_desc desc);
+EZKAPI ezk_win_id ezk_window_create(ezk_win_desc desc);
 
-EZKAPI void ezk_free_window(ezk_win_id id);
+EZKAPI void ezk_window_free(ezk_win_id id);
 
-EZKAPI void ezk_delete_window(ezk_win_id id);
+EZKAPI void ezk_window_update(ezk_win_id id);
 
-EZKAPI void ezk_delete_windows();
-
-EZKAPI void ezk_update_window(ezk_win_id id);
-
-EZKAPI void ezk_update_windows();
+EZKAPI void ezk_window_update_all();
 
 EZKAPI ezk_bool ezk_window_get_fs(ezk_win_id id);
 EZKAPI ezk_v2_i ezk_window_get_dims(ezk_win_id id);
@@ -171,6 +168,6 @@ EZKAPI void ezk_window_flip_fs(ezk_win_id id);
 EZKAPI void ezk_window_set_dims(ezk_win_id id, ezk_v2_i dims, ezk_bool inc);
 EZKAPI void ezk_window_set_pos(ezk_win_id id, ezk_v2_i pos, ezk_bool inc);
 EZKAPI void ezk_window_set_name(ezk_win_id id, ezk_string name);
-EZKAPI void ezk_quit_window(ezk_win_id id);
+EZKAPI void ezk_window_quit(ezk_win_id id);
 
 #endif // EZK_WIN_INCL

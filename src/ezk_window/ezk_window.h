@@ -28,7 +28,8 @@ typedef enum {
   EZK_EVENT_FOCUSOUT,
   EZK_EVENT_CLIENTMESSAGE, // linux thing, might change
   EZK_EVENT_EXIT,
-  EZK_EVENT_UNKNOWN
+  EZK_EVENT_UNKNOWN,
+  EZK_EVENT_NONE
 } ezk_event_type;
 
 typedef enum {
@@ -138,7 +139,7 @@ typedef struct {
   ezk_mouse mouse;
   ezk_bool keyboard[EZK_KEY_COUNT]; // shows if each key is down
 
-  ezk_bool quitted; // up to user to terminate loop
+  ezk_bool quitted; // up to use to terminate loop
 
   EZK_CALLBACK(create_cb, void, ezk_win_id id);
   EZK_CALLBACK(event_cb, void, ezk_win_id id, ezk_event ev);
