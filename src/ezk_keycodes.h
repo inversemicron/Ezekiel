@@ -9,10 +9,6 @@
 #include "ezk_primitives.h"
 #include "ezk_platform.h"
 
-#ifdef EZK_WINDOWS
-  #include <windows.h>
-#endif
-
 typedef enum {
 EZK_MOD_SHIFT    = 1 << 0,
 EZK_MOD_ALTGR    = 1 << 1,
@@ -494,6 +490,9 @@ ezk_key ezk_key_x11_to_ezk(int keycode)  {
   return x11_ezk_lt[keycode];
 }
 
+#ifdef EZK_WINDOWS
+#include <windows.h>
+
 #define EZK_WIN32_KC_LOOKUP \
   EZK_WIN32_LT_XM(SPACE,         VK_SPACE) \
   EZK_WIN32_LT_XM(HASH,          VK_OEM_3) \
@@ -623,3 +622,5 @@ ezk_key ezk_key_win32_to_ezk(int keycode)  {
   if (keycode < 0 || keycode >= EZK_WIN32_KEY_LT_LENGTH) return EZK_KEY_NULL;
   return win32_ezk_lt[keycode];
 }
+
+#endif

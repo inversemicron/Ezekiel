@@ -94,6 +94,8 @@ typedef struct {
 typedef ezk_event_any ezk_event_focus;
 typedef ezk_event_any ezk_event_minimize;
 
+#define EZK_NONE_EVENT (ezk_event){EZK_EVENT_NONE} // Don't add to include/ezk_window, for lib use only
+
 typedef union {
   ezk_event_type type;
   ezk_event_any any;
