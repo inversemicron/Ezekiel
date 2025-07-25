@@ -28,9 +28,9 @@ typedef struct {ezk_f32 x,y;} ezk_v2;
 typedef struct {ezk_f32 x,y,z;} ezk_v3;
 typedef struct {ezk_f32 x,y,z,w;} ezk_v4;
 
-typedef struct {ezk_i32 x,y;} ezk_v2_i;
-typedef struct {ezk_i32 x,y,z;} ezk_v3_i;
-typedef struct {ezk_i32 x,y,z,w;} ezk_v4_i;
+typedef struct {ezk_i32 x,y;} ezk_v2i;
+typedef struct {ezk_i32 x,y,z;} ezk_v3i;
+typedef struct {ezk_i32 x,y,z,w;} ezk_v4i;
 
 typedef struct {
     ezk_u64 seconds; // since the epoch

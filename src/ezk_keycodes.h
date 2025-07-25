@@ -10,14 +10,14 @@
 #include "ezk_platform.h"
 
 typedef enum {
-EZK_MOD_SHIFT    = 1 << 0,
-EZK_MOD_ALTGR    = 1 << 1,
-EZK_MOD_CTRL     = 1 << 2,
-EZK_MOD_ALT      = 1 << 3,
-EZK_MOD_FN       = 1 << 4,
-EZK_MOD_COMMAND  = 1 << 5,
-EZK_MOD_OPTION   = 1 << 6,
-EZK_MODKEY_COUNT = 7
+    EZK_MOD_SHIFT = 1 << 0,
+    EZK_MOD_ALTGR = 1 << 1,
+    EZK_MOD_CTRL = 1 << 2,
+    EZK_MOD_ALT = 1 << 3,
+    EZK_MOD_FN = 1 << 4,
+    EZK_MOD_COMMAND = 1 << 5,
+    EZK_MOD_OPTION = 1 << 6,
+    EZK_MODKEY_COUNT = 7
 } ezk_mod_key;
 
 #define shift_down(mod) mod & 1
@@ -155,18 +155,18 @@ EZK_MODKEY_COUNT = 7
   EZK_KEY_XM(F34,                    "F34") \
   EZK_KEY_XM(F35,                    "F35")
 
-#define EZK_KEY_XM(key,name) EZK_KEY_##key,
+#define EZK_KEY_XM(key, name) EZK_KEY_##key,
 typedef enum {
-  EZK_KEY_NULL,
-  EZK_KEYS_XMACRO
-  EZK_KEY_COUNT
+    EZK_KEY_NULL,
+    EZK_KEYS_XMACRO
+    EZK_KEY_COUNT
 } ezk_key;
 #undef EZK_KEY_XM
 
-#define EZK_KEY_XM(key,name) name,
-const char* ezk_key_names[] = {
-  "NULL",
-  EZK_KEYS_XMACRO
+#define EZK_KEY_XM(key, name) name,
+const char *ezk_key_names[] = {
+    "NULL",
+    EZK_KEYS_XMACRO
 };
 #undef EZK_KEY_XM
 
@@ -307,30 +307,30 @@ const char* ezk_key_names[] = {
 // couple helper macros so nothing is added for keys where altgr does nothing
 #define EZK_ACTIVE_1(name) EZK_CKEY_##name, // has an altgr function
 #define EZK_ACTIVE_0(name) // has no altgr function
-#define EZK_ACTIVE_KEY(name,active) EZK_ACTIVE_##active(name)
+#define EZK_ACTIVE_KEY(name, active) EZK_ACTIVE_##active(name)
 
 // complex keys enum
 
-#define EZK_CKEY_XM(base,shift,s_type,s_name,altgr,a_type,a_name) EZK_ACTIVE_KEY(s_type,shift) EZK_ACTIVE_KEY(a_type,altgr) 
+#define EZK_CKEY_XM(base, shift, s_type, s_name, altgr, a_type, a_name) EZK_ACTIVE_KEY(s_type,shift) EZK_ACTIVE_KEY(a_type,altgr)
 typedef enum {
-  EZK_CKEY_NULL,
-  EZK_CKEYS_XMACRO
-  EZK_CKEY_COUNT
+    EZK_CKEY_NULL,
+    EZK_CKEYS_XMACRO
+    EZK_CKEY_COUNT
 } ezk_ckey;
 
 #undef EZK_ACTIVE_1
 #define EZK_ACTIVE_1(name) #name,
 
 #undef EZK_CKEY_XM
-#define EZK_CKEY_XM(base,shift,s_type,s_name,altgr,a_type,a_name)  EZK_ACTIVE_KEY(s_type,shift) EZK_ACTIVE_KEY(a_type,altgr)
+#define EZK_CKEY_XM(base, shift, s_type, s_name, altgr, a_type, a_name)  EZK_ACTIVE_KEY(s_type,shift) EZK_ACTIVE_KEY(a_type,altgr)
 
-const char* ezk_ckey_names[] = {
-  "NULL",
-  EZK_CKEYS_XMACRO
+const char *ezk_ckey_names[] = {
+    "NULL",
+    EZK_CKEYS_XMACRO
 };
 
 #undef EZK_CKEY_XM
-#define EZK_CKEY_XM(base,shift,s_type,s_name,altgr,a_type,a_name) {EZK_ACTIVE_KEY(s_type,shift), EZK_ACTIVE_KEY(a_type,altgr)},
+#define EZK_CKEY_XM(base, shift, s_type, s_name, altgr, a_type, a_name) {EZK_ACTIVE_KEY(s_type,shift), EZK_ACTIVE_KEY(a_type,altgr)},
 
 #undef EZK_ACTIVE_0
 #undef EZK_ACTIVE_1
@@ -342,8 +342,8 @@ const char* ezk_ckey_names[] = {
 
 // first is shift key, then altgr if it exists
 static const ezk_ckey ckey_lookup[EZK_KEY_COUNT + 1][2] = {
-  {0,0}, // for null key
-  EZK_CKEYS_XMACRO
+    {0, 0}, // for null key
+    EZK_CKEYS_XMACRO
 };
 
 #undef EZK_ACTIVE_KEY
@@ -351,7 +351,7 @@ static const ezk_ckey ckey_lookup[EZK_KEY_COUNT + 1][2] = {
 #undef EZK_ACTIVE_0
 
 ezk_ckey ezk_get_ckey_from_base(ezk_key base, ezk_mod_key mods) {
-  if(!(altgr_down(mods) || shift_down(mods))) {
+  if (!(altgr_down(mods) || shift_down(mods))) {
     return EZK_CKEY_NULL;
   }
   return ckey_lookup[base][altgr_down(mods) ? 1 : 0]; // NEEDS WORK: what if shift and altgr are down at the same time? 
@@ -460,32 +460,32 @@ ezk_ckey ezk_get_ckey_from_base(ezk_key base, ezk_mod_key mods) {
   EZK_X11_LT_XM(F9,             75) \
   EZK_X11_LT_XM(F10,            76) \
   EZK_X11_LT_XM(F11,            95) \
-  EZK_X11_LT_XM(F12,            96) 
+  EZK_X11_LT_XM(F12,            96)
 
 #define EZK_X11_KEY_LT_LENGTH 136 // needs to be updated if more keys are added
 
-#define EZK_X11_LT_XM(k,i) [i] = EZK_KEY_##k,
+#define EZK_X11_LT_XM(k, i) [i] = EZK_KEY_##k,
 
 static const ezk_key x11_ezk_lt[EZK_X11_KEY_LT_LENGTH] = {
-  EZK_X11_KC_LOOKUP
+    EZK_X11_KC_LOOKUP
 };
 
 #undef EZK_X11_LT_XM
-#define EZK_X11_LT_XM(k,i) [EZK_KEY_##k] = i,
+#define EZK_X11_LT_XM(k, i) [EZK_KEY_##k] = i,
 
 static const ezk_key ezk_x11_lt[EZK_X11_KEY_LT_LENGTH] = {
-  EZK_X11_KC_LOOKUP
+    EZK_X11_KC_LOOKUP
 };
 
 #undef EZK_X11_LT_XM
 
-ezk_key ezk_key_ezk_to_x11(int keycode)  {
+ezk_key ezk_key_ezk_to_x11(int keycode) {
   if (keycode < 0 || keycode >= EZK_X11_KEY_LT_LENGTH) return EZK_KEY_NULL;
   return ezk_x11_lt[keycode];
 }
 
 
-ezk_key ezk_key_x11_to_ezk(int keycode)  {
+ezk_key ezk_key_x11_to_ezk(int keycode) {
   if (keycode < 0 || keycode >= EZK_X11_KEY_LT_LENGTH) return EZK_KEY_NULL;
   return x11_ezk_lt[keycode];
 }
