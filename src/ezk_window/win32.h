@@ -1,7 +1,6 @@
 #include <windows.h>
 #include <windowsx.h>
-#include <stdio.h>
-#include <stdint.h>
+
 #include "./ezk_window.h"
 
 typedef struct {
@@ -82,7 +81,7 @@ static ezk_event translate_event(MSG msg) {
 
 ezk_time get_time() {
     FILETIME ft;
-    GetSystemTimePreciseAsFileTime(&ft);  // 100‑ns precision :contentReference[oaicite:2]{index=2}
+    GetSystemTimePreciseAsFileTime(&ft);  // 100‑ns precision :contentReference[officiate:2]{index=2}
 
     ULARGE_INTEGER uli;
     uli.LowPart = ft.dwLowDateTime;
@@ -127,11 +126,16 @@ void ezk_internal_set_fullscreen(ezk_win_id id, ezk_bool fs) {
                      SWP_FRAMECHANGED);
     } else {
         SetWindowLong(hwnd, GWL_STYLE, win->windowed_style);
-        SetWindowPos(hwnd, HWND_TOP,
+
+        SetWindowPos(hwnd, NULL,
                      win->windowed_rect.left, win->windowed_rect.top,
                      win->windowed_rect.right - win->windowed_rect.left,
                      win->windowed_rect.bottom - win->windowed_rect.top,
-                     SWP_FRAMECHANGED);
+                     SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE);
+
+        // Optional: Force window to refresh style and layout
+        ShowWindow(hwnd, SW_SHOWNORMAL);  // Ensures window is visible and resizable
+        SetForegroundWindow(hwnd);        // Bring window to front if needed
     }
 
     win->fullscreen = fs;
@@ -241,20 +245,12 @@ ezk_event* ezk_internal_update_evqueue(ezk_win_id id) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
 
-        // Debug print before translation
-        if (msg.message == WM_KEYDOWN) {
-            printf("Raw Windows key code: %lu\n", msg.wParam);
-        }
-
         ev_queue[ev_index] = translate_event(msg);
         ev_queue[ev_index].any.win_id = win->id;
         ev_queue[ev_index].any.time = get_time();
         ev_queue[ev_index].any.index = ev_index;
 
-        // Debug print after translation
-        if (ev_queue[ev_index].type == EZK_EVENT_KEYDOWN) {
-            printf("Translated key code: %d\n", ev_queue[ev_index].key.key);
-        }
+        if(ev_queue[ev_index].type == EZK_EVENT_EXIT) break; // stop the event queue here
 
         // Resize array for next event
         ev_index++;

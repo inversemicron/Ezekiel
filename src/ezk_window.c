@@ -1,13 +1,6 @@
-#ifndef EZK_WIN_INCL
-#define EZK_WIN_INCL
-
 #include "ezk_api.h"
-#include "./ezk_platform.h"
-#include "./ezk_window/ezk_window.h"
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include "ezk_platform.h"
+#include "ezk_window/ezk_window.h"
 
 // Platform-specific headers
 
@@ -70,7 +63,8 @@ static void quit_window(ezk_window* win) {
 EZKAPI ezk_win_id ezk_window_create(ezk_win_desc desc) {
   ezk_window* win = malloc(sizeof(ezk_window));
   if (!win) {return -1;}
-  //memset(win, 0, sizeof(ezk_window)); // Clear the structure
+  memset(win, 0, sizeof(ezk_window)); // Clear the structure
+
   win->id = alloc_window_id(win); // Get our ID
 
   win->pos = desc.pos;
@@ -150,7 +144,7 @@ EZKAPI void ezk_window_update(ezk_win_id id) {
 
 	i++;
   }
-  free(ev_queue); // free the evqueue allocated by ezk_internal_update_evqueue
+  free(ev_queue); // free the event queue allocated by ezk_internal_update_evqueue
 
   if(!win->quitted) {
 	if(win->update_cb)
@@ -232,5 +226,3 @@ EZKAPI void ezk_window_set_name(ezk_win_id id, ezk_string name) {
   windows[id]->name = name; // memory unsafe? prev. name is not freed
   ezk_internal_set_name(id, name);
 }
-
-#endif // EZK_WIN_INCL

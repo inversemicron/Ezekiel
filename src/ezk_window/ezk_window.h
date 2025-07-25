@@ -1,7 +1,10 @@
 #ifndef EZK_WIN_COMMON_INCL
 #define EZK_WIN_COMMON_INCL
 
+#include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "../ezk_keycodes.h"
 #include "../ezk_primitives.h"
