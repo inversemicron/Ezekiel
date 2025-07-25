@@ -35,9 +35,7 @@ static ezk_event translate_event(MSG msg) {
 
     switch (msg.message) {
         case WM_KEYDOWN:
-            printf("Raw Windows key code: %lu\n", msg.wParam); // Debug print
             ev.type = EZK_EVENT_KEYDOWN;
-            printf("Translated key code: %d\n", ev.key.key); // Debug print
             ev.key.key = ezk_key_win32_to_ezk((ezk_i32)msg.wParam);
             break;
         case WM_KEYUP:

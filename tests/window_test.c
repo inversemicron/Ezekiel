@@ -13,21 +13,21 @@ void on_event(ezk_win_id id, ezk_event ev) {
         case EZK_KEY_ONE:
           ezk_window_flip_fs(id);
           break;
-      case EZK_KEY_ARROWUP:
-        ezk_window_set_pos(id, (ezk_v2_i){0,-10}, true);
-        break;  
-      case EZK_KEY_ARROWDOWN:
-        ezk_window_set_pos(id, (ezk_v2_i){0,10}, true);
-        break; 
-      case EZK_KEY_ARROWLEFT:
-        ezk_window_set_pos(id, (ezk_v2_i){-10,0}, true);
-        break; 
-      case EZK_KEY_ARROWRIGHT:
-        ezk_window_set_pos(id, (ezk_v2_i){10,0}, true);
-        break;
-      case EZK_KEY_x: 
-        ezk_window_quit(id);
-        break;
+      	case EZK_KEY_ARROWUP:
+       	  ezk_window_set_pos(id, (ezk_v2_i){0,-10}, true);
+       	  break;  
+      	case EZK_KEY_ARROWDOWN:
+          ezk_window_set_pos(id, (ezk_v2_i){0,10}, true);
+          break; 
+     	case EZK_KEY_ARROWLEFT:
+          ezk_window_set_pos(id, (ezk_v2_i){-10,0}, true);
+          break; 
+      	case EZK_KEY_ARROWRIGHT:
+          ezk_window_set_pos(id, (ezk_v2_i){10,0}, true);
+          break;
+      	case EZK_KEY_x: 
+          ezk_window_quit(id);
+          break;
     }
   }
 }
