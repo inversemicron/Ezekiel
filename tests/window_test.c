@@ -29,11 +29,15 @@ void on_event(ezk_win_id id, ezk_event ev) {
           ezk_window_request_close(id);
           break;
       }
+      break;
+    case EZK_EVENT_CLOSE_REQUESTED:
+      printf("Quit requested for window id: %d\n", id);
+      ezk_window_cancel_close(id);
   }
 }
 
-void on_close_request(ezk_win_id id) {
-  printf("Killing window id: %d\n", id);
+void on_quit(ezk_win_id id) {
+  printf("Window id %i exited\n", id);
 }
 
 ezk_win_desc desc = {
@@ -50,7 +54,8 @@ ezk_win_desc desc = {
 
     .create_cb = on_create,
     .event_cb = on_event,
-    .close_cb = on_close_request
+    .update_cb = 0,
+    .exit_cb = 0
 };
 
 int main() {
@@ -58,8 +63,6 @@ int main() {
   while (!ezk_window_closed(id)) {
     ezk_window_update_all();
   }
-
-  ezk_window_free(id);
 
   return 0;
 }

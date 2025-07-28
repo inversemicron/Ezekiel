@@ -50,9 +50,26 @@ static ezk_win_id alloc_window_id(ezk_window *win) {
   return id;
 }
 
+
+void free_window(ezk_window* win) {
+  realloc_free_ids(free_id_count + 1);
+  free_ids[free_id_count] = win->id;
+
+  windows[win->id] = 0; // this means we can skip over deleted windows
+  // don't reduce win_count as it describes the length of the windows buffer
+
+  free(win);
+
+  free_id_count++;
+}
+
 static void close_window(ezk_window *win) {
   ezk_internal_close_window(win->id);
   win->closed = true;
+  if(win->exit_cb) {
+    win->exit_cb(win->id);
+  }
+  free_window(win);
 }
 
 EZKAPI ezk_win_id ezk_window_create(ezk_win_desc desc) {
@@ -69,7 +86,7 @@ EZKAPI ezk_win_id ezk_window_create(ezk_win_desc desc) {
   win->create_cb = desc.create_cb;
   win->event_cb = desc.event_cb;
   win->update_cb = desc.update_cb;
-  win->close_cb = desc.close_cb;
+  win->exit_cb = desc.exit_cb;
 
   ezk_internal_create_window(win, desc);
 
@@ -78,22 +95,13 @@ EZKAPI ezk_win_id ezk_window_create(ezk_win_desc desc) {
   return win->id;
 }
 
-EZKAPI void ezk_window_free(ezk_win_id id) {
-  ezk_window *win = windows[id];
-
-  realloc_free_ids(free_id_count + 1);
-  free_ids[free_id_count] = win->id;
-
-  windows[win->id] = 0; // this means we can skip over deleted windows
-  // don't reduce win count as it describes the length of the windows buffer
-
-  free(win);
-
-  free_id_count++;
+EZKAPI void ezk_window_request_close(ezk_win_id id) {
+  windows[id]->close_requested = true; // doesn't generate an event
 }
 
-EZKAPI void ezk_window_request_close(ezk_win_id id) {
-  windows[id]->close_requested = true; // runs close cb to decide the window's fate...
+// doesn't work on linux
+EZKAPI void ezk_window_cancel_close(ezk_win_id id) {
+  windows[id]->close_requested = false; // can be run during close_requested_cb
 }
 
 // The next two functions can be used to manually press keys
@@ -130,33 +138,20 @@ EZKAPI void ezk_window_update(ezk_win_id id) {
       default:
         break;
     }
+
     if (win->event_cb)
       win->event_cb(id, ev);
-    if (win->close_requested) {
-      if (win->close_cb) {
-        win->close_cb(id);
-      } else {
-        close_window(win);
-      }
-    }
+
     i++;
   }
 
-  win->close_requested = ezk_internal_get_quit_requested(id);
-
-  if (win->close_requested) {
-    if (win->close_cb) {
-      win->close_cb(id);
-      if (win->close_requested) {
-        close_window(win);
-        return;
-      }
-    } else {
-      close_window(win);
-      return;
-    }
+  win->close_requested = ezk_internal_get_close_requested(id);
+  
+  if (win->close_requested) { // if a close had been requested and ezk_window_cancel_close 
+			      // has not been called
+    close_window(win);
   }
-
+  
   if (win->update_cb) { win->update_cb(id); }
 }
 
@@ -170,7 +165,7 @@ EZKAPI void ezk_window_update_all() {
 }
 
 EZKAPI ezk_bool ezk_window_closed(ezk_win_id id) {
-  return windows[id]->closed;
+  return windows[id] == 0 || windows[id]->closed; // short-circuiting prevents segfault
 }
 
 EZKAPI ezk_bool ezk_window_get_fs(ezk_win_id id) {

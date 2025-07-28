@@ -132,7 +132,7 @@ typedef struct {
     ezk_window_non_event_cb create_cb;
     ezk_window_event_cb event_cb;
     ezk_window_non_event_cb update_cb;
-    ezk_window_non_event_cb close_cb;
+    ezk_window_non_event_cb exit_cb;
 } ezk_win_desc;
 
 typedef struct {
@@ -154,7 +154,7 @@ typedef struct {
     ezk_window_non_event_cb create_cb;
     ezk_window_event_cb event_cb;
     ezk_window_non_event_cb update_cb;
-    ezk_window_non_event_cb close_cb;
+    ezk_window_non_event_cb exit_cb;
 } ezk_window;
 
 #endif

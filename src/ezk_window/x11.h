@@ -14,6 +14,8 @@ typedef struct {
     XSetWindowAttributes wa;
     ezk_u32 ev_mask;
 
+    ezk_bool close_requested;
+
     Atom NET_WM_STATE;
     Atom NET_WM_STATE_FS;
 
@@ -77,20 +79,20 @@ static ezk_event translate_event(ezk_x11_window *win, XEvent ev) {
       break;
     case MotionNotify:
       translated.type = EZK_EVENT_MOUSEMOVE;
-      translated.mousemove.mouse_pos = (ezk_v2_i) {ev.xmotion.x, ev.xmotion.y};
+      translated.mousemove.mouse_pos = (ezk_v2i) {ev.xmotion.x, ev.xmotion.y};
       break;
     case EnterNotify:
       translated.type = EZK_EVENT_MOUSEENTER;
-      translated.crossing.mouse_pos = (ezk_v2_i) {ev.xcrossing.x, ev.xcrossing.y};
+      translated.crossing.mouse_pos = (ezk_v2i) {ev.xcrossing.x, ev.xcrossing.y};
       break;
     case LeaveNotify:
       translated.type = EZK_EVENT_MOUSEEXIT;
-      translated.crossing.mouse_pos = (ezk_v2_i) {ev.xcrossing.x, ev.xcrossing.y};
+      translated.crossing.mouse_pos = (ezk_v2i) {ev.xcrossing.x, ev.xcrossing.y};
       break;
     case ConfigureNotify: // can't be resized as that has already been checked for
       translated.type = EZK_EVENT_DIMCHANGE;
-      translated.dimension.pos = (ezk_v2_i) {ev.xconfigure.x, ev.xconfigure.y};
-      translated.dimension.dims = (ezk_v2_i) {ev.xconfigure.width, ev.xconfigure.height};
+      translated.dimension.pos = (ezk_v2i) {ev.xconfigure.x, ev.xconfigure.y};
+      translated.dimension.dims = (ezk_v2i) {ev.xconfigure.width, ev.xconfigure.height};
       break;
     case FocusIn:
       translated.type = EZK_EVENT_FOCUSIN;
@@ -102,12 +104,12 @@ static ezk_event translate_event(ezk_x11_window *win, XEvent ev) {
       message_type = ev.xclient.message_type;
       if (message_type == win->WM_PROTOCOLS) {
         if (ev.xclient.data.l[0] == (ezk_i64) win->WM_DELETE_WINDOW) {
-          translated.type = EZK_EVENT_EXIT;
+          translated.type = EZK_EVENT_CLOSE_REQUESTED;
         }
       }
       break;
     case DestroyNotify:
-      translated.type = EZK_EVENT_EXIT;
+      translated.type = EZK_EVENT_CLOSE_REQUESTED;
       break;
     default:
       // this includes MappingNotify and Selection Events. Might be worth looking into.
@@ -146,12 +148,12 @@ void ezk_internal_set_fullscreen(ezk_win_id id, ezk_bool fs) {
   XFlush(win->display);
 }
 
-void ezk_internal_set_dims(ezk_win_id id, ezk_v2_i dims) {
+void ezk_internal_set_dims(ezk_win_id id, ezk_v2i dims) {
   ezk_x11_window *win = int_windows[id];
   XResizeWindow(win->display, win->handle, dims.x, dims.y);
 }
 
-void ezk_internal_set_pos(ezk_win_id id, ezk_v2_i pos) {
+void ezk_internal_set_pos(ezk_win_id id, ezk_v2i pos) {
   ezk_x11_window *win = int_windows[id];
   XMoveWindow(win->display, win->handle, pos.x, pos.y - 37); // ???
 }
@@ -162,7 +164,9 @@ void ezk_internal_set_name(ezk_win_id id, ezk_string name) {
 }
 
 void ezk_internal_create_window(ezk_window *window, ezk_win_desc desc) {
-  if (window->id >= int_windows_count) { // this is using the same ids as are used in ezk_window.
+  if (window->id >= int_windows_count) {
+    // each window here corresponds to a window in ezk_window.c,
+    // meaning  
     realloc_windows(window->id + 1);
   }
 
@@ -214,7 +218,7 @@ void ezk_internal_create_window(ezk_window *window, ezk_win_desc desc) {
   }
 }
 
-void ezk_internal_delete_window(ezk_win_id id) {
+void ezk_internal_close_window(ezk_win_id id) {
   ezk_x11_window *win = int_windows[id];
   XUnmapWindow(win->display, win->handle);
   XDestroyWindow(win->display, win->handle);
@@ -223,6 +227,7 @@ void ezk_internal_delete_window(ezk_win_id id) {
 }
 
 static ezk_u32 get_event_count(ezk_win_id id) {
+  ezk_x11_window* win = int_windows[id];
   return XEventsQueued(win->display, QueuedAfterFlush);
 }
 
@@ -243,12 +248,17 @@ ezk_event *ezk_internal_update_evqueue(ezk_win_id id) {
   ezk_event *ev_queue = malloc((ev_count + 1) * sizeof(ezk_event)); // +1 for none terminator
   for (ezk_u32 i = 0; i < ev_count; i++) {
     ev_queue[i] = get_next_event(win);
-    if (ev_queue[i].type == EZK_EVENT_EXIT) {
-      break; // end the evqueue here
+    if (ev_queue[i].type == EZK_EVENT_CLOSE_REQUESTED) {
+      win->close_requested = true;
     }
   }
 
   ev_queue[ev_count] = EZK_NONE_EVENT; // null terminator my beloved
 
   return ev_queue;
+}
+
+ezk_bool ezk_internal_get_close_requested(ezk_win_id id) {
+  ezk_x11_window *win = int_windows[id];
+  return win->close_requested;
 }
