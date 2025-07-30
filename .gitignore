@@ -10,3 +10,5 @@
 *.dll
 *.so
 
+bin
+.idea
