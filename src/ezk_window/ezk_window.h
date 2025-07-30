@@ -20,6 +20,14 @@ typedef enum {
 } ezk_win_bg_type;
 
 typedef enum {
+    EZK_BUTTON_1 = 1,
+    EZK_BUTTON_2 = 2,
+    EZK_BUTTON_3 = 4,
+    EZK_BUTTON_4 = 8,
+    EZK_BUTTON_5 = 16
+} ezk_button;
+
+typedef enum {
     EZK_EVENT_KEYDOWN,
     EZK_EVENT_KEYUP,
     EZK_EVENT_BUTTONDOWN,
@@ -32,17 +40,8 @@ typedef enum {
     EZK_EVENT_FOCUSOUT,
     EZK_EVENT_CLIENTMESSAGE, // linux thing, might change
     EZK_EVENT_CLOSE_REQUESTED,
-    EZK_EVENT_UNKNOWN,
-    EZK_EVENT_NONE
+    EZK_EVENT_UNKNOWN
 } ezk_event_type;
-
-typedef enum {
-    EZK_BUTTON_1 = 1,
-    EZK_BUTTON_2 = 2,
-    EZK_BUTTON_3 = 4,
-    EZK_BUTTON_4 = 8,
-    EZK_BUTTON_5 = 16
-} ezk_button;
 
 typedef struct {
     ezk_event_type type;
@@ -97,8 +96,6 @@ typedef struct {
 
 typedef ezk_event_any ezk_event_focus;
 typedef ezk_event_any ezk_event_minimize;
-
-#define EZK_NONE_EVENT (ezk_event){EZK_EVENT_NONE} // Don't add to include/ezk_window, for lib use only
 
 typedef union {
     ezk_event_type type;

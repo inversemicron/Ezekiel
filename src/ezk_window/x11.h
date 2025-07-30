@@ -14,13 +14,16 @@ typedef struct {
     XSetWindowAttributes wa;
     ezk_u32 ev_mask;
 
-    ezk_bool close_requested;
+    ezk_v2i pos;
+    ezk_v2i dims;
 
     Atom NET_WM_STATE;
     Atom NET_WM_STATE_FS;
 
     Atom WM_PROTOCOLS;
     Atom WM_DELETE_WINDOW;
+
+    GC gc;
 } ezk_x11_window;
 
 static ezk_x11_window **int_windows;
@@ -89,16 +92,22 @@ static ezk_event translate_event(ezk_x11_window *win, XEvent ev) {
       translated.type = EZK_EVENT_MOUSEEXIT;
       translated.crossing.mouse_pos = (ezk_v2i) {ev.xcrossing.x, ev.xcrossing.y};
       break;
-    case ConfigureNotify: // can't be resized as that has already been checked for
+    case ConfigureNotify: 
       translated.type = EZK_EVENT_DIMCHANGE;
       translated.dimension.pos = (ezk_v2i) {ev.xconfigure.x, ev.xconfigure.y};
       translated.dimension.dims = (ezk_v2i) {ev.xconfigure.width, ev.xconfigure.height};
+      win->pos = translated.dimension.pos;
+      win->dims = translated.dimension.dims;
       break;
     case FocusIn:
       translated.type = EZK_EVENT_FOCUSIN;
       break;
     case FocusOut:
       translated.type = EZK_EVENT_FOCUSOUT;
+      break;
+    case Expose:
+      translated.type = EZK_EVENT_UNKNOWN;
+      XFillRectangle(win->display, win->handle, win->gc, 0, 0, win->dims.x, win->dims.y);
       break;
     case ClientMessage:
       message_type = ev.xclient.message_type;
@@ -108,9 +117,9 @@ static ezk_event translate_event(ezk_x11_window *win, XEvent ev) {
         }
       }
       break;
-    case DestroyNotify:
-      translated.type = EZK_EVENT_CLOSE_REQUESTED;
-      break;
+    //case DestroyNotify:
+    //  translated.type = EZK_EVENT_CLOSE_REQUESTED;
+    //  break;
     default:
       // this includes MappingNotify and Selection Events. Might be worth looking into.
       translated.type = EZK_EVENT_UNKNOWN;
@@ -204,7 +213,8 @@ void ezk_internal_create_window(ezk_window *window, ezk_win_desc desc) {
                               win->ev_mask, &(win->wa));
 
   ezk_internal_set_name(win->id, desc.name);
-
+  win->gc = XCreateGC(win->display, win->handle,0,NULL);
+ 
   Atom protocols[] = {
       win->WM_DELETE_WINDOW
   };
@@ -241,24 +251,14 @@ static ezk_event get_next_event(ezk_x11_window *win) {
   return ezk_ev;
 }
 
-ezk_event *ezk_internal_update_evqueue(ezk_win_id id) {
+ezk_event *ezk_internal_update_evqueue(ezk_win_id id, ezk_u32 *eq_size) {
   ezk_x11_window *win = int_windows[id];
 
-  ezk_u32 ev_count = get_event_count(win->id);
-  ezk_event *ev_queue = malloc((ev_count + 1) * sizeof(ezk_event)); // +1 for none terminator
-  for (ezk_u32 i = 0; i < ev_count; i++) {
+  *eq_size = get_event_count(win->id);
+  ezk_event *ev_queue = malloc(*eq_size * sizeof(ezk_event));
+  for (ezk_u32 i = 0; i < *eq_size; i++) {
     ev_queue[i] = get_next_event(win);
-    if (ev_queue[i].type == EZK_EVENT_CLOSE_REQUESTED) {
-      win->close_requested = true;
-    }
   }
 
-  ev_queue[ev_count] = EZK_NONE_EVENT; // null terminator my beloved
-
   return ev_queue;
-}
-
-ezk_bool ezk_internal_get_close_requested(ezk_win_id id) {
-  ezk_x11_window *win = int_windows[id];
-  return win->close_requested;
 }

@@ -116,10 +116,11 @@ EZKAPI void ezk_window_key_up(ezk_window *win, ezk_key key) {
 EZKAPI void ezk_window_update(ezk_win_id id) {
   ezk_window *win = windows[id];
   if (win->closed) return; // if window has closed, just dont update it
-  ezk_event *ev_queue = ezk_internal_update_evqueue(win->id); // returns null terminated list
 
-  ezk_u32 i = 0;
-  while (ev_queue[i].any.type != EZK_EVENT_NONE) { // loop through each event and process it
+  ezk_u32 eq_size;
+  ezk_event *ev_queue = ezk_internal_update_evqueue(win->id, &eq_size);
+
+  for(ezk_u32 i = 0; i < eq_size; i++) { // loop through each event and process it
     ezk_event ev = ev_queue[i];
     switch (ev.type) {
       case EZK_EVENT_KEYDOWN:
@@ -135,6 +136,8 @@ EZKAPI void ezk_window_update(ezk_win_id id) {
       case EZK_EVENT_MOUSEMOVE:
         win->mouse.pos = ev.mousemove.mouse_pos;
         break;
+      case EZK_EVENT_CLOSE_REQUESTED:
+	win->close_requested = true;
       default:
         break;
     }
@@ -142,11 +145,8 @@ EZKAPI void ezk_window_update(ezk_win_id id) {
     if (win->event_cb)
       win->event_cb(id, ev);
 
-    i++;
   }
-
-  win->close_requested = ezk_internal_get_close_requested(id);
-  
+ 
   if (win->close_requested) { // if a close had been requested and ezk_window_cancel_close 
 			      // has not been called
     close_window(win);
