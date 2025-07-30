@@ -33,7 +33,7 @@ void on_event(ezk_win_id id, ezk_event ev) {
     case EZK_EVENT_CLOSE_REQUESTED:
       printf("Quit requested for window id: %d\n", id);
       if(ezk_window_is_key_down(id, EZK_KEY_z)) {
-      	ezk_window_cancel_close(id);
+      	ezk_window_cancel_close(id); // cancels if Z is down
       }
   }
 }

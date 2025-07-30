@@ -100,7 +100,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg,WPARAM wParam, LPARAM lParam) {
     case WM_CLOSE:
       for(int i = 0; i < int_windows_count; i++) { // yucky linear search to find our window
         if(int_windows[i]->hwnd == hwnd) {
-          int_windows[i]->quit_requested = true;
+          int_windows[i]->quit_requested = true; // adds EZK_EVENT_CLOSE_REQUESTED
+                                                 // when the event queue is updated next
         }
       }
       return 0;
@@ -232,31 +233,31 @@ static ezk_event get_next_event(ezk_win32_window *win, MSG *msg) {
   return ev;
 }
 
-ezk_event *ezk_internal_update_evqueue(ezk_win_id id) {
+ezk_event *ezk_internal_update_evqueue(ezk_win_id id, ezk_u32 *eq_size) {
   ezk_win32_window *win = int_windows[id];
 
-  win->quit_requested = false;
-
-  // Start with space for at least one event plus terminator
   ezk_u32 ev_index = 0;
-  ezk_event *ev_queue = malloc(2 * sizeof(ezk_event));
+  ezk_event *ev_queue = malloc(0);
+
+  if(win->quit_requested) {
+      ev_queue = realloc(ev_queue, sizeof(ezk_event) * (ev_index + 1));
+      ev_queue[ev_index] = (ezk_event){EZK_EVENT_CLOSE_REQUESTED};
+      ev_index++;
+
+      win->quit_requested = false;
+  }
+
   MSG msg;
   while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+    ev_queue = realloc(ev_queue, sizeof(ezk_event) * (ev_index + 1));
 
     ev_queue[ev_index] = get_next_event(win, &msg);
     ev_queue[ev_index].any.index = ev_index;
 
     // Resize array for next event
     ev_index++;
-    ev_queue = realloc(ev_queue, sizeof(ezk_event) * (ev_index + 2));
   }
-  // Add terminating event
-  ev_queue[ev_index + 1] = EZK_NONE_EVENT;
+  *eq_size = ev_index;
 
   return ev_queue;
-}
-
-ezk_bool ezk_internal_get_quit_requested(ezk_win_id id) {
-  ezk_win32_window *win = int_windows[id];
-  return win->quit_requested;
 }
