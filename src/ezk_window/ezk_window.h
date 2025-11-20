@@ -9,6 +9,7 @@
 #include "../ezk_keycodes.h"
 #include "../ezk_primitives.h"
 #include "../ezk_callback.h"
+#include "../ezk_bflag.h"
 
 typedef ezk_u16 ezk_win_id;
 
@@ -116,10 +117,20 @@ typedef struct {
 EZK_CALLBACK_TYPEDEF(ezk_window_non_event_cb, void, ezk_win_id);
 EZK_CALLBACK_TYPEDEF(ezk_window_event_cb, void, ezk_win_id, ezk_event);
 
+#define EZK_WINDOW_FS 0
+#define EZK_WINDOW_BORDERLESS 1 // top bar
+#define EZK_WINDOW_EXCLUSIVE 2 // if exclusive, changes display res for fs. If not, change window res.
+#define EZK_WINDOW_MENU 3 // dropdown menus (only on windows for now)
+
 typedef struct {
     ezk_v2i dims;
     ezk_v2i pos;
+
     ezk_bool fullscreen;
+    ezk_bool borderless;
+    ezk_bool exclusive;
+    ezk_bool menu;
+
     char *name;
 
     ezk_win_bg_type bg_type;
@@ -137,7 +148,7 @@ typedef struct {
     ezk_v2i dims;
     ezk_v2i pos;
     ezk_string name;
-    ezk_bool fs;
+    ezk_bflag8 fs_state;
 
     ezk_event *ev_queue;
     ezk_u32 ev_count;

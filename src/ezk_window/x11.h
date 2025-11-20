@@ -8,18 +8,24 @@ typedef struct {
     ezk_win_id id;
 
     Display *display;
+    Screen *screen;
     Window parent;
 
     Window handle;
     XSetWindowAttributes wa;
     ezk_u32 ev_mask;
 
-    ezk_v2i pos;
-    ezk_v2i dims;
-
+    ezk_v2i current_pos;
+    ezk_v2i current_dims;
+    
+    ezk_v2i windowed_pos;
+    ezk_v2i windowed_dims;
+    
     Atom NET_WM_STATE;
     Atom NET_WM_STATE_FS;
-
+    Atom NET_WM_STATE_MAX_H;
+    Atom NET_WM_STATE_MAX_V;
+    
     Atom WM_PROTOCOLS;
     Atom WM_DELETE_WINDOW;
 
@@ -38,10 +44,18 @@ static void realloc_windows(ezk_win_id len) {
   int_windows_count = len;
 }
 
+static ezk_time get_time() { // temporary
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return (ezk_time) {tv.tv_sec, tv.tv_usec};
+}
+
 static void init_atoms(ezk_x11_window *win) {
   win->NET_WM_STATE = XInternAtom(win->display, "_NET_WM_STATE", False);
   win->NET_WM_STATE_FS = XInternAtom(win->display, "_NET_WM_STATE_FULLSCREEN", False);
-
+  win->NET_WM_STATE_MAX_H = XInternAtom(win->display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
+  win->NET_WM_STATE_MAX_V = XInternAtom(win->display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
+  
   win->WM_PROTOCOLS = XInternAtom(win->display, "WM_PROTOCOLS", False);
   win->WM_DELETE_WINDOW = XInternAtom(win->display, "WM_DELETE_WINDOW", False);
 }
@@ -96,8 +110,8 @@ static ezk_event translate_event(ezk_x11_window *win, XEvent ev) {
       translated.type = EZK_EVENT_DIMCHANGE;
       translated.dimension.pos = (ezk_v2i) {ev.xconfigure.x, ev.xconfigure.y};
       translated.dimension.dims = (ezk_v2i) {ev.xconfigure.width, ev.xconfigure.height};
-      win->pos = translated.dimension.pos;
-      win->dims = translated.dimension.dims;
+      win->current_pos = translated.dimension.pos;
+      win->current_dims = translated.dimension.dims;
       break;
     case FocusIn:
       translated.type = EZK_EVENT_FOCUSIN;
@@ -107,19 +121,18 @@ static ezk_event translate_event(ezk_x11_window *win, XEvent ev) {
       break;
     case Expose:
       translated.type = EZK_EVENT_UNKNOWN;
-      XFillRectangle(win->display, win->handle, win->gc, 0, 0, win->dims.x, win->dims.y);
+      XFillRectangle(win->display, win->handle, win->gc, 0, 0, 
+          win->current_dims.x, win->current_dims.y);
       break;
     case ClientMessage:
       message_type = ev.xclient.message_type;
       if (message_type == win->WM_PROTOCOLS) {
         if (ev.xclient.data.l[0] == (ezk_i64) win->WM_DELETE_WINDOW) {
           translated.type = EZK_EVENT_CLOSE_REQUESTED;
+          break;
         }
       }
-      break;
-    //case DestroyNotify:
-    //  translated.type = EZK_EVENT_CLOSE_REQUESTED;
-    //  break;
+      [[fallthrough]]; // C23 and up
     default:
       // this includes MappingNotify and Selection Events. Might be worth looking into.
       translated.type = EZK_EVENT_UNKNOWN;
@@ -127,32 +140,50 @@ static ezk_event translate_event(ezk_x11_window *win, XEvent ev) {
   return translated;
 }
 
-ezk_time get_time() {
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  return (ezk_time) {tv.tv_sec, tv.tv_usec};
-}
-
-void ezk_internal_set_fullscreen(ezk_win_id id, ezk_bool fs) {
+void ezk_internal_update_fs_state(ezk_win_id id, ezk_bflag8 fs_state) {
   ezk_x11_window *win = int_windows[id];
+  
   XEvent e;
-
   memset(&e, 0, sizeof(XEvent));
 
   e.type = ClientMessage;
   e.xclient.window = win->handle;
   e.xclient.format = 32;
   e.xclient.message_type = win->NET_WM_STATE;
-  e.xclient.data.l[0] = (ezk_u64) fs;
+  
   e.xclient.data.l[1] = win->NET_WM_STATE_FS;
   e.xclient.data.l[2] = 0;
   e.xclient.data.l[3] = 1;
   e.xclient.data.l[4] = 0;
+  
+  if(ezk_bflag8_get(fs_state, EZK_WINDOW_BORDERLESS)) { 
+    e.xclient.data.l[0] = ezk_bflag8_get(fs_state, EZK_WINDOW_FS);
+  } else {  
+    e.xclient.data.l[0] = 0; // disable if borderless isnt active
+  }
 
   XSendEvent(win->display, win->parent,
              false,
              SubstructureNotifyMask | SubstructureRedirectMask,
              &e);
+
+  XEvent e2 = e;
+  e2.xclient.data.l[1] = win->NET_WM_STATE_MAX_H;
+  e2.xclient.data.l[2] = win->NET_WM_STATE_MAX_V;
+  
+  if(ezk_bflag8_get(fs_state, EZK_WINDOW_BORDERLESS)) { 
+    e2.xclient.data.l[0] = 0; // disable bordered if bordeless is active
+  } else {  
+    e2.xclient.data.l[0] = ezk_bflag8_get(fs_state, EZK_WINDOW_FS);
+  }
+
+  XSendEvent(win->display, win->parent,
+             false,
+             SubstructureNotifyMask | SubstructureRedirectMask,
+             &e2);
+
+
+  e.xclient.data.l[0] = 0;
 
   XFlush(win->display);
 }
@@ -172,18 +203,19 @@ void ezk_internal_set_name(ezk_win_id id, ezk_string name) {
   XStoreName(win->display, win->handle, name);
 }
 
-void ezk_internal_create_window(ezk_window *window, ezk_win_desc desc) {
-  if (window->id >= int_windows_count) {
+void ezk_internal_create_window(ezk_win_id id, ezk_win_desc desc) {
+  if (id >= int_windows_count) {
     // each window here corresponds to a window in ezk_window.c,
-    // meaning  
-    realloc_windows(window->id + 1);
+    // so the buffer just allocates enough for the highest id.
+    // if the same id is repeated, the window is overwritten.
+    realloc_windows(id + 1);
   }
 
-  int_windows[window->id] = malloc(sizeof(ezk_x11_window));
+  int_windows[id] = malloc(sizeof(ezk_x11_window));
 
-  ezk_x11_window *win = int_windows[window->id];
+  ezk_x11_window *win = int_windows[id];
 
-  win->id = window->id;
+  win->id = id;
   win->display = XOpenDisplay(NULL);
 
   if (win->display == 0) {
@@ -201,7 +233,7 @@ void ezk_internal_create_window(ezk_window *window, ezk_win_desc desc) {
   win->wa.event_mask = StructureNotifyMask | KeyPressMask | KeyReleaseMask |
                        PointerMotionMask | ButtonPressMask | ButtonReleaseMask |
                        ExposureMask | FocusChangeMask | VisibilityChangeMask |
-                       EnterWindowMask | LeaveWindowMask | PropertyChangeMask;
+                       EnterWindowMask | LeaveWindowMask | PropertyChangeMask; 
   win->wa.background_pixmap = CopyFromParent;
 
   win->handle = XCreateWindow(win->display, win->parent,
@@ -214,7 +246,13 @@ void ezk_internal_create_window(ezk_window *window, ezk_win_desc desc) {
 
   ezk_internal_set_name(win->id, desc.name);
   win->gc = XCreateGC(win->display, win->handle,0,NULL);
- 
+  win->screen = XScreenOfDisplay(win->display,0);
+
+  win->current_pos = desc.pos;
+  win->windowed_pos = desc.pos;
+  win->current_dims = desc.dims;
+  win->windowed_dims = desc.dims;
+
   Atom protocols[] = {
       win->WM_DELETE_WINDOW
   };
@@ -222,10 +260,6 @@ void ezk_internal_create_window(ezk_window *window, ezk_win_desc desc) {
   XSetWMProtocols(win->display, win->handle, protocols, 1);
 
   show_window(win);
-
-  if (desc.fullscreen) {
-    ezk_internal_set_fullscreen(win->id, true);
-  }
 }
 
 void ezk_internal_close_window(ezk_win_id id) {

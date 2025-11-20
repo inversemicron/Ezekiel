@@ -13,6 +13,9 @@ void on_event(ezk_win_id id, ezk_event ev) {
         case EZK_KEY_ONE:
           ezk_window_flip_fs(id);
           break;
+        case EZK_KEY_TWO:
+          ezk_window_set_borderless(id,!ezk_window_get_borderless(id));
+          break;
         case EZK_KEY_ARROWUP:
           ezk_window_set_pos(id, (ezk_v2i) {0, -10}, true);
           break;
@@ -47,7 +50,12 @@ ezk_win_desc desc = {
     .dims.y = 600,
     .pos.x = 0,
     .pos.y = 0,
+    
     .fullscreen = false,
+    .borderless = false,
+    .exclusive = false,
+    .menu = false,
+
     .name = "ezk_window test",
 
     .bg_type = EZK_WIN_BGTYPE_COPYFROMPARENT,

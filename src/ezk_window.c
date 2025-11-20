@@ -88,7 +88,15 @@ EZKAPI ezk_win_id ezk_window_create(ezk_win_desc desc) {
   win->update_cb = desc.update_cb;
   win->exit_cb = desc.exit_cb;
 
-  ezk_internal_create_window(win, desc);
+  win->fs_state = 0;
+  ezk_bflag8_set(&win->fs_state, EZK_WINDOW_FS, desc.fullscreen);
+  ezk_bflag8_set(&win->fs_state, EZK_WINDOW_BORDERLESS, desc.borderless);
+  ezk_bflag8_set(&win->fs_state, EZK_WINDOW_EXCLUSIVE, desc.exclusive);
+  ezk_bflag8_set(&win->fs_state, EZK_WINDOW_MENU, desc.menu);
+  
+  ezk_internal_create_window(win->id, desc);
+
+  ezk_internal_update_fs_state(win->id, win->fs_state);
 
   if (win->create_cb)
     win->create_cb(win->id);
@@ -99,18 +107,8 @@ EZKAPI void ezk_window_request_close(ezk_win_id id) {
   windows[id]->close_requested = true; // doesn't generate an event
 }
 
-// doesn't work on linux
 EZKAPI void ezk_window_cancel_close(ezk_win_id id) {
   windows[id]->close_requested = false; // can be run during close_requested_cb
-}
-
-// The next two functions can be used to manually press keys
-EZKAPI void ezk_window_key_down(ezk_window *win, ezk_key key) {
-  win->keyboard[key] = true;
-}
-
-EZKAPI void ezk_window_key_up(ezk_window *win, ezk_key key) {
-  win->keyboard[key] = false;
 }
 
 EZKAPI void ezk_window_update(ezk_win_id id) {
@@ -124,10 +122,10 @@ EZKAPI void ezk_window_update(ezk_win_id id) {
     ezk_event ev = ev_queue[i];
     switch (ev.type) {
       case EZK_EVENT_KEYDOWN:
-        ezk_window_key_down(win, ev.key.key);
+        win->keyboard[ev.key.key] = true;
         break;
       case EZK_EVENT_KEYUP:
-        ezk_window_key_up(win, ev.key.key);
+        win->keyboard[ev.key.key] = false;
         break;
       case EZK_EVENT_DIMCHANGE:
         win->pos = ev.dimension.pos;
@@ -168,8 +166,16 @@ EZKAPI ezk_bool ezk_window_closed(ezk_win_id id) {
   return windows[id] == 0 || windows[id]->closed; // short-circuiting prevents segfault
 }
 
+EZKAPI ezk_bflag8 ezk_window_get_fs_state(ezk_win_id id) {
+  return windows[id]->fs_state;
+} 
+
 EZKAPI ezk_bool ezk_window_get_fs(ezk_win_id id) {
-  return windows[id]->fs;
+  return ezk_bflag8_get(windows[id]->fs_state, EZK_WINDOW_FS);
+}
+
+EZKAPI ezk_bool ezk_window_get_borderless(ezk_win_id id) {
+  return ezk_bflag8_get(windows[id]->fs_state, EZK_WINDOW_BORDERLESS);
 }
 
 EZKAPI ezk_v2i ezk_window_get_dims(ezk_win_id id) {
@@ -193,13 +199,18 @@ EZKAPI ezk_bool ezk_window_is_key_down(ezk_win_id id, ezk_key key) {
 }
 
 EZKAPI void ezk_window_set_fs(ezk_win_id id, ezk_bool fs) {
-  windows[id]->fs = fs;
-  ezk_internal_set_fullscreen(id, fs);
+  ezk_bflag8_set(&windows[id]->fs_state, EZK_WINDOW_FS, fs);
+  ezk_internal_update_fs_state(id, windows[id]->fs_state);
 }
 
 EZKAPI void ezk_window_flip_fs(ezk_win_id id) {
-  windows[id]->fs ^= 1; // flip
-  ezk_internal_set_fullscreen(id, windows[id]->fs);
+  ezk_bflag8_flip(&windows[id]->fs_state, EZK_WINDOW_FS);
+  ezk_internal_update_fs_state(id, windows[id]->fs_state);
+}
+
+EZKAPI void ezk_window_set_borderless(ezk_win_id id, ezk_bool borderless) {
+  ezk_bflag8_set(&windows[id]->fs_state, EZK_WINDOW_BORDERLESS, borderless);
+  ezk_internal_update_fs_state(id, windows[id]->fs_state);
 }
 
 EZKAPI void ezk_window_set_dims(ezk_win_id id, ezk_v2i dims, ezk_bool inc) {

@@ -4,7 +4,7 @@
 <X> Moving windows
 <X> Window title setting
 <X> Close event (WM_DELETE_WINDOW)
-<O> Fullscreen toggle
+<X> Fullscreen toggle
 <O> Borderless window
 <> Always-on-top flag
 <> Minimize/Restore/Maximize

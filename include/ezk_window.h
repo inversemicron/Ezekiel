@@ -116,7 +116,12 @@ EZK_CALLBACK_TYPEDEF(ezk_window_event_cb, void, ezk_win_id, ezk_event);
 typedef struct {
     ezk_v2i dims;
     ezk_v2i pos;
-    ezk_bool fullscreen;
+  
+    ezk_bool fullscreen; 
+    ezk_bool borderless;
+    ezk_bool exclusive;
+    ezk_bool menu;
+   
     char *name;
 
     ezk_win_bg_type bg_type;
@@ -154,11 +159,14 @@ typedef struct {
 
 EZKAPI ezk_win_id ezk_window_create(ezk_win_desc desc);
 
-EZKAPI void ezk_window_update(ezk_win_id id);
+EZKAPI void ezk_window_request_close(ezk_win_id id);
+EZKAPI void ezk_window_cancel_close(ezk_win_id id);
 
+EZKAPI void ezk_window_update(ezk_win_id id);
 EZKAPI void ezk_window_update_all();
 
 EZKAPI ezk_bool ezk_window_get_fs(ezk_win_id id);
+EZKAPI ezk_bool ezk_window_get_borderless(ezk_win_id id);
 EZKAPI ezk_v2i ezk_window_get_dims(ezk_win_id id);
 EZKAPI ezk_v2i ezk_window_get_pos(ezk_win_id id);
 EZKAPI ezk_string ezk_window_get_name(ezk_win_id id);
@@ -168,10 +176,9 @@ EZKAPI ezk_bool ezk_window_closed(ezk_win_id id);
 
 EZKAPI void ezk_window_set_fs(ezk_win_id id, ezk_bool fs);
 EZKAPI void ezk_window_flip_fs(ezk_win_id id);
+EZKAPI void ezk_window_set_borderless(ezk_win_id id, ezk_bool borderless);
 EZKAPI void ezk_window_set_dims(ezk_win_id id, ezk_v2i dims, ezk_bool inc);
 EZKAPI void ezk_window_set_pos(ezk_win_id id, ezk_v2i pos, ezk_bool inc);
 EZKAPI void ezk_window_set_name(ezk_win_id id, ezk_string name);
-EZKAPI void ezk_window_request_close(ezk_win_id id);
-EZKAPI void ezk_window_cancel_close(ezk_win_id id);
 
 #endif // EZK_WIN_INCL
