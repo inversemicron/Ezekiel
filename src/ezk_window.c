@@ -30,7 +30,7 @@ static void realloc_ids(ezk_u16 n) {
 }
 
 static void realloc_free_ids(ezk_u16 n) {
-  if (!windows) {
+  if (!free_ids) {
     free_ids = malloc(n * sizeof(ezk_win_id));
   } else {
     free_ids = realloc(free_ids, n * sizeof(ezk_win_id));
@@ -104,7 +104,10 @@ EZKAPI ezk_win_id ezk_window_create(ezk_win_desc desc) {
 }
 
 EZKAPI void ezk_window_request_close(ezk_win_id id) {
-  windows[id]->close_requested = true; // doesn't generate an event
+  ezk_window *win = windows[id];
+  win->close_requested = true;
+  if (win->event_cb) // manually send a close request event
+    win->event_cb(id, (ezk_event){EZK_EVENT_CLOSE_REQUESTED});
 }
 
 EZKAPI void ezk_window_cancel_close(ezk_win_id id) {
@@ -135,7 +138,7 @@ EZKAPI void ezk_window_update(ezk_win_id id) {
         win->mouse.pos = ev.mousemove.mouse_pos;
         break;
       case EZK_EVENT_CLOSE_REQUESTED:
-	win->close_requested = true;
+	      win->close_requested = true;
       default:
         break;
     }
@@ -144,6 +147,8 @@ EZKAPI void ezk_window_update(ezk_win_id id) {
       win->event_cb(id, ev);
 
   }
+
+  free(ev_queue);
  
   if (win->close_requested) { // if a close had been requested and ezk_window_cancel_close 
 			      // has not been called
@@ -156,7 +161,7 @@ EZKAPI void ezk_window_update(ezk_win_id id) {
 EZKAPI void ezk_window_update_all() {
   for (ezk_win_id i = 0; i < win_count; i++) {
     if (!windows[i]) { // if the window was deleted
-      break; // skip it
+      continue; // skip it
     }
     ezk_window_update(i);
   }
@@ -236,7 +241,7 @@ EZKAPI void ezk_window_set_pos(ezk_win_id id, ezk_v2i pos, ezk_bool inc) {
 EZKAPI void ezk_window_set_name(ezk_win_id id, ezk_string name) {
   ezk_window *win = windows[id];
   if (win->name) {
-    free(name);
+    free(win->name);
   }
   win->name = name;
   ezk_internal_set_name(id, name);
