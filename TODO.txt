@@ -5,9 +5,9 @@
 <X> Window title setting
 <X> Close event (WM_DELETE_WINDOW)
 <X> Fullscreen toggle
-<O> Borderless window
-<> Always-on-top flag
-<> Minimize/Restore/Maximize
+<X> Borderless window
+<O> Always-on-top flag
+<O> Minimize/Restore/Maximize
 <> Multi-monitor awareness
 <> DPI awareness / scaling
 <> Transparent windows
@@ -18,7 +18,7 @@
 <> Embedded window in another app (XEmbed)
 <> Drag-and-drop support (XDND protocol)
 <> Window icon setting (XWMHints / _NET_WM_ICON)
-<> 
+ 
 ## Keyboard Input
 <X> Key press / release
 <X> Unicode character input (using layout)
@@ -33,7 +33,7 @@
 <> Input method (IME) support for complex scripts (CJK, etc.)
 <> Hotkey registration (global or app-level)
 <> Key remapping at runtime
-<> 
+ 
 ## Mouse Input
 <> Mouse move
 <> Mouse button press/release
@@ -45,13 +45,13 @@
 <> Double-click detection
 <> Mouse enter/leave window events
 <> Confine cursor to window
-<> 
+ 
 ## Clipboard & Text Input
 <> Clipboard read/write (X11 PRIMARY, CLIPBOARD)
 <> Selection handling (mouse selection, paste)
 <> Input buffer queue (Unicode characters)
 <> Input context for composed/multi-part characters
-<> 
+ 
 ## Events & Message Pump
 <> Polling event loop (ezk_poll_events)
 <> Event translation to internal format
@@ -59,38 +59,38 @@
 <> Event filters (e.g., for focus/blur)
 <> Blocking wait for events (ezk_wait_event)
 <> Timers (custom app-level)
-<> 
+ 
 ## Display & Monitor Info
 <> Get screen resolution / dimensions
 <> Multi-monitor support (via XRandR)
 <> Refresh rate detection
 <> DPI scaling / font size hints
-<> 
+ 
 ## Configuration & Runtime Controls
 <> Configurable input layout at runtime
 <> Configurable window style
 <> Toggle VSync / frame cap integration (if rendering used)
 <> Input grab (lock keyboard/mouse focus)
-<> 
+ 
 ## Threading and Concurrency
 <> Thread-safe input/event system
 <> Thread-safe window creation and destruction
 <> Background event polling thread (optional)
-<> 
+ 
 ## Performance and Debug Tools
 <> Event logger / visual debugger
 <> Keyboard/mouse test tool
 <> Runtime metrics (event latency, FPS counter)
 <> Dynamic reloading of layout maps or config
-<> 
-## Optional / Experimental Features
+ 
+## Optional / Experimental Feature
 <> Touch input (XInput2 support)
 <> Gamepad input (via /dev/input or evdev)
 <> XWayland detection and support
 <> Vulkan/OpenGL context creation helpers
 <> Sound output/input stub integration (for future multimedia API)
 <> Integration with scripting languages (Lua, Python bindings)
-<> 
+ 
 ## Library-Ready Essentials
 <> Namespacing (ezk_ prefix already good)
 <> Modular structure (ezk_window.c, ezk_input.c, etc.)
@@ -99,7 +99,7 @@
 <> Minimal dependencies (only Xlib ideally)
 <> Cross-compilation support (for dev environments)
 <> Example programs / test suite
-<> 
+ 
 ## Integration Ideas
 <> Backend for custom game engine
 <> Compatibility with OpenGL/Vulkan contexts

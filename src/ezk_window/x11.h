@@ -140,7 +140,7 @@ static ezk_event translate_event(ezk_x11_window *win, XEvent ev) {
   return translated;
 }
 
-void ezk_internal_update_fs_state(ezk_win_id id, ezk_bflag8 fs_state) {
+void ezk_internal_update_state_flags(ezk_win_id id, ezk_bflag8 state_flags) {
   ezk_x11_window *win = int_windows[id];
   
   XEvent e;
@@ -156,8 +156,8 @@ void ezk_internal_update_fs_state(ezk_win_id id, ezk_bflag8 fs_state) {
   e.xclient.data.l[3] = 1;
   e.xclient.data.l[4] = 0;
   
-  if(ezk_bflag8_get(fs_state, EZK_WINDOW_BORDERLESS)) { 
-    e.xclient.data.l[0] = ezk_bflag8_get(fs_state, EZK_WINDOW_FS);
+  if(ezk_bflag8_get(state_flags, EZK_WINDOW_BORDERLESS)) { 
+    e.xclient.data.l[0] = ezk_bflag8_get(state_flags, EZK_WINDOW_FS);
   } else {  
     e.xclient.data.l[0] = 0; // disable if borderless isnt active
   }
@@ -171,19 +171,16 @@ void ezk_internal_update_fs_state(ezk_win_id id, ezk_bflag8 fs_state) {
   e2.xclient.data.l[1] = win->NET_WM_STATE_MAX_H;
   e2.xclient.data.l[2] = win->NET_WM_STATE_MAX_V;
   
-  if(ezk_bflag8_get(fs_state, EZK_WINDOW_BORDERLESS)) { 
-    e2.xclient.data.l[0] = 0; // disable bordered if bordeless is active
+  if(ezk_bflag8_get(state_flags, EZK_WINDOW_BORDERLESS)) { 
+    e2.xclient.data.l[0] = 0; // disable bordered if borderless is active
   } else {  
-    e2.xclient.data.l[0] = ezk_bflag8_get(fs_state, EZK_WINDOW_FS);
+    e2.xclient.data.l[0] = ezk_bflag8_get(state_flags, EZK_WINDOW_FS);
   }
 
   XSendEvent(win->display, win->parent,
              false,
              SubstructureNotifyMask | SubstructureRedirectMask,
              &e2);
-
-
-  e.xclient.data.l[0] = 0;
 
   XFlush(win->display);
 }

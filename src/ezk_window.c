@@ -88,15 +88,15 @@ EZKAPI ezk_win_id ezk_window_create(ezk_win_desc desc) {
   win->update_cb = desc.update_cb;
   win->exit_cb = desc.exit_cb;
 
-  win->fs_state = 0;
-  ezk_bflag8_set(&win->fs_state, EZK_WINDOW_FS, desc.fullscreen);
-  ezk_bflag8_set(&win->fs_state, EZK_WINDOW_BORDERLESS, desc.borderless);
-  ezk_bflag8_set(&win->fs_state, EZK_WINDOW_EXCLUSIVE, desc.exclusive);
-  ezk_bflag8_set(&win->fs_state, EZK_WINDOW_MENU, desc.menu);
+  win->state_flags = 0;
+  ezk_bflag8_set(&win->state_flags, EZK_WINDOW_FS, desc.fullscreen);
+  ezk_bflag8_set(&win->state_flags, EZK_WINDOW_BORDERLESS, desc.borderless);
+  ezk_bflag8_set(&win->state_flags, EZK_WINDOW_EXCLUSIVE, desc.exclusive);
+  ezk_bflag8_set(&win->state_flags, EZK_WINDOW_MENU, desc.menu);
   
   ezk_internal_create_window(win->id, desc);
 
-  ezk_internal_update_fs_state(win->id, win->fs_state);
+  ezk_internal_update_state_flags(win->id, win->state_flags);
 
   if (win->create_cb)
     win->create_cb(win->id);
@@ -171,16 +171,16 @@ EZKAPI ezk_bool ezk_window_closed(ezk_win_id id) {
   return windows[id] == 0 || windows[id]->closed; // short-circuiting prevents segfault
 }
 
-EZKAPI ezk_bflag8 ezk_window_get_fs_state(ezk_win_id id) {
-  return windows[id]->fs_state;
+EZKAPI ezk_bflag8 ezk_window_get_state_flags(ezk_win_id id) {
+  return windows[id]->state_flags;
 } 
 
 EZKAPI ezk_bool ezk_window_get_fs(ezk_win_id id) {
-  return ezk_bflag8_get(windows[id]->fs_state, EZK_WINDOW_FS);
+  return ezk_bflag8_get(windows[id]->state_flags, EZK_WINDOW_FS);
 }
 
 EZKAPI ezk_bool ezk_window_get_borderless(ezk_win_id id) {
-  return ezk_bflag8_get(windows[id]->fs_state, EZK_WINDOW_BORDERLESS);
+  return ezk_bflag8_get(windows[id]->state_flags, EZK_WINDOW_BORDERLESS);
 }
 
 EZKAPI ezk_v2i ezk_window_get_dims(ezk_win_id id) {
@@ -204,18 +204,18 @@ EZKAPI ezk_bool ezk_window_is_key_down(ezk_win_id id, ezk_key key) {
 }
 
 EZKAPI void ezk_window_set_fs(ezk_win_id id, ezk_bool fs) {
-  ezk_bflag8_set(&windows[id]->fs_state, EZK_WINDOW_FS, fs);
-  ezk_internal_update_fs_state(id, windows[id]->fs_state);
+  ezk_bflag8_set(&windows[id]->state_flags, EZK_WINDOW_FS, fs);
+  ezk_internal_update_state_flags(id, windows[id]->state_flags);
 }
 
 EZKAPI void ezk_window_flip_fs(ezk_win_id id) {
-  ezk_bflag8_flip(&windows[id]->fs_state, EZK_WINDOW_FS);
-  ezk_internal_update_fs_state(id, windows[id]->fs_state);
+  ezk_bflag8_flip(&windows[id]->state_flags, EZK_WINDOW_FS);
+  ezk_internal_update_state_flags(id, windows[id]->state_flags);
 }
 
 EZKAPI void ezk_window_set_borderless(ezk_win_id id, ezk_bool borderless) {
-  ezk_bflag8_set(&windows[id]->fs_state, EZK_WINDOW_BORDERLESS, borderless);
-  ezk_internal_update_fs_state(id, windows[id]->fs_state);
+  ezk_bflag8_set(&windows[id]->state_flags, EZK_WINDOW_BORDERLESS, borderless);
+  ezk_internal_update_state_flags(id, windows[id]->state_flags);
 }
 
 EZKAPI void ezk_window_set_dims(ezk_win_id id, ezk_v2i dims, ezk_bool inc) {

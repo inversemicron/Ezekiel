@@ -148,7 +148,7 @@ typedef struct {
     ezk_v2i dims;
     ezk_v2i pos;
     ezk_string name;
-    ezk_bflag8 fs_state;
+    ezk_bflag8 state_flags;
 
     ezk_event *ev_queue;
     ezk_u32 ev_count;
