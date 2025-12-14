@@ -20,6 +20,7 @@
 <> Window icon setting (XWMHints / _NET_WM_ICON)
  
 ## Keyboard Input
+-- switch keycodes to using a .c file!! now !!
 <X> Key press / release
 <X> Unicode character input (using layout)
 <X> Modifier key support (Shift/Ctrl/Alt/Meta)

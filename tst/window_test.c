@@ -16,6 +16,9 @@ void on_event(ezk_win_id id, ezk_event ev) {
         case EZK_KEY_TWO:
           ezk_window_set_borderless(id,!ezk_window_get_borderless(id));
           break;
+        case EZK_KEY_THREE:
+          ezk_window_flip_minimised(id);
+          break;
         case EZK_KEY_ARROWUP:
           ezk_window_set_pos(id, (ezk_v2i) {0, -10}, true);
           break;
@@ -31,6 +34,7 @@ void on_event(ezk_win_id id, ezk_event ev) {
         case EZK_KEY_x:
           ezk_window_request_close(id);
           break;
+        default:
       }
       break;
     case EZK_EVENT_CLOSE_REQUESTED:
@@ -38,6 +42,7 @@ void on_event(ezk_win_id id, ezk_event ev) {
       if(ezk_window_is_key_down(id, EZK_KEY_z)) {
       	ezk_window_cancel_close(id); // cancels if Z is down
       }
+    default:
   }
 }
 

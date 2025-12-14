@@ -10,6 +10,7 @@
 #include "../ezk_primitives.h"
 #include "../ezk_callback.h"
 #include "../ezk_bflag.h"
+#include "../ezk_api.h"
 
 typedef ezk_u16 ezk_win_id;
 
@@ -121,6 +122,7 @@ EZK_CALLBACK_TYPEDEF(ezk_window_event_cb, void, ezk_win_id, ezk_event);
 #define EZK_WINDOW_BORDERLESS 1 // top bar
 #define EZK_WINDOW_EXCLUSIVE 2 // if exclusive, changes display res for fs. If not, change window res.
 #define EZK_WINDOW_MENU 3 // dropdown menus (only on windows for now)
+#define EZK_WINDOW_MINIMISE 4 // minimised/restored
 
 typedef struct {
     ezk_v2i dims;
@@ -164,5 +166,31 @@ typedef struct {
     ezk_window_non_event_cb update_cb;
     ezk_window_non_event_cb exit_cb;
 } ezk_window;
+
+EZKAPI ezk_win_id ezk_window_create(ezk_win_desc desc);
+
+EZKAPI void ezk_window_request_close(ezk_win_id id);
+EZKAPI void ezk_window_cancel_close(ezk_win_id id);
+
+EZKAPI void ezk_window_update(ezk_win_id id);
+EZKAPI void ezk_window_update_all();
+
+EZKAPI ezk_bool ezk_window_get_fs(ezk_win_id id);
+EZKAPI ezk_bool ezk_window_get_borderless(ezk_win_id id);
+EZKAPI ezk_v2i ezk_window_get_dims(ezk_win_id id);
+EZKAPI ezk_v2i ezk_window_get_pos(ezk_win_id id);
+EZKAPI ezk_string ezk_window_get_name(ezk_win_id id);
+EZKAPI ezk_mouse ezk_window_get_mouse(ezk_win_id id);
+EZKAPI ezk_bool ezk_window_is_key_down(ezk_win_id id, ezk_key key);
+EZKAPI ezk_bool ezk_window_closed(ezk_win_id id);
+
+EZKAPI void ezk_window_set_fs(ezk_win_id id, ezk_bool fs);
+EZKAPI void ezk_window_flip_fs(ezk_win_id id);
+EZKAPI void ezk_window_set_borderless(ezk_win_id id, ezk_bool borderless);
+EZKAPI void ezk_window_set_minimised(ezk_win_id id, ezk_bool minimised);
+EZKAPI void ezk_window_flip_minimised(ezk_win_id id);
+EZKAPI void ezk_window_set_dims(ezk_win_id id, ezk_v2i dims, ezk_bool inc);
+EZKAPI void ezk_window_set_pos(ezk_win_id id, ezk_v2i pos, ezk_bool inc);
+EZKAPI void ezk_window_set_name(ezk_win_id id, ezk_string name);
 
 #endif

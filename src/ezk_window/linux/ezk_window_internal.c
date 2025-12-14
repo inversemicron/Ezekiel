@@ -1,35 +1,36 @@
 #include "X11/Xlib.h"
 
-#include "./ezk_window.h"
+#include "../ezk_window.h"
 
 #include <sys/time.h>
 
 typedef struct {
-    ezk_win_id id;
+  ezk_win_id id;
 
-    Display *display;
-    Screen *screen;
-    Window parent;
+  Display *display;
+  Screen *screen;
+  Window parent;
 
-    Window handle;
-    XSetWindowAttributes wa;
-    ezk_u32 ev_mask;
+  Window handle;
+  XSetWindowAttributes wa;
+  ezk_u32 ev_mask;
 
-    ezk_v2i current_pos;
-    ezk_v2i current_dims;
+  ezk_v2i current_pos;
+  ezk_v2i current_dims;
     
-    ezk_v2i windowed_pos;
-    ezk_v2i windowed_dims;
+  ezk_v2i windowed_pos;
+  ezk_v2i windowed_dims;
     
-    Atom NET_WM_STATE;
-    Atom NET_WM_STATE_FS;
-    Atom NET_WM_STATE_MAX_H;
-    Atom NET_WM_STATE_MAX_V;
-    
-    Atom WM_PROTOCOLS;
-    Atom WM_DELETE_WINDOW;
+  Atom NET_WM_STATE;
+  Atom NET_WM_STATE_FS;
+  Atom NET_WM_STATE_MAX_H;
+  Atom NET_WM_STATE_MAX_V;
+  Atom NET_WM_STATE_HIDDEN;
 
-    GC gc;
+  Atom WM_PROTOCOLS;
+  Atom WM_DELETE_WINDOW;
+
+  GC gc;
 } ezk_x11_window;
 
 static ezk_x11_window **int_windows;
@@ -55,7 +56,8 @@ static void init_atoms(ezk_x11_window *win) {
   win->NET_WM_STATE_FS = XInternAtom(win->display, "_NET_WM_STATE_FULLSCREEN", False);
   win->NET_WM_STATE_MAX_H = XInternAtom(win->display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
   win->NET_WM_STATE_MAX_V = XInternAtom(win->display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
-  
+  win->NET_WM_STATE_HIDDEN = XInternAtom(win->display, "_NET_WM_STATE_HIDDEN", False);
+
   win->WM_PROTOCOLS = XInternAtom(win->display, "WM_PROTOCOLS", False);
   win->WM_DELETE_WINDOW = XInternAtom(win->display, "WM_DELETE_WINDOW", False);
 }
@@ -140,9 +142,7 @@ static ezk_event translate_event(ezk_x11_window *win, XEvent ev) {
   return translated;
 }
 
-void ezk_internal_update_state_flags(ezk_win_id id, ezk_bflag8 state_flags) {
-  ezk_x11_window *win = int_windows[id];
-  
+static void send_state_message(ezk_x11_window *win, Atom atom1, Atom atom2, ezk_u64 val) {
   XEvent e;
   memset(&e, 0, sizeof(XEvent));
 
@@ -151,36 +151,34 @@ void ezk_internal_update_state_flags(ezk_win_id id, ezk_bflag8 state_flags) {
   e.xclient.format = 32;
   e.xclient.message_type = win->NET_WM_STATE;
   
-  e.xclient.data.l[1] = win->NET_WM_STATE_FS;
-  e.xclient.data.l[2] = 0;
+  e.xclient.data.l[0] = val;
+  e.xclient.data.l[1] = atom1;
+  e.xclient.data.l[2] = atom2;
   e.xclient.data.l[3] = 1;
   e.xclient.data.l[4] = 0;
   
-  if(ezk_bflag8_get(state_flags, EZK_WINDOW_BORDERLESS)) { 
-    e.xclient.data.l[0] = ezk_bflag8_get(state_flags, EZK_WINDOW_FS);
-  } else {  
-    e.xclient.data.l[0] = 0; // disable if borderless isnt active
-  }
-
   XSendEvent(win->display, win->parent,
              false,
              SubstructureNotifyMask | SubstructureRedirectMask,
              &e);
+}
 
-  XEvent e2 = e;
-  e2.xclient.data.l[1] = win->NET_WM_STATE_MAX_H;
-  e2.xclient.data.l[2] = win->NET_WM_STATE_MAX_V;
+void ezk_internal_update_state_flags(ezk_win_id id, ezk_bflag8 state_flags) {
+  ezk_x11_window *win = int_windows[id];
   
-  if(ezk_bflag8_get(state_flags, EZK_WINDOW_BORDERLESS)) { 
-    e2.xclient.data.l[0] = 0; // disable bordered if borderless is active
-  } else {  
-    e2.xclient.data.l[0] = ezk_bflag8_get(state_flags, EZK_WINDOW_FS);
-  }
+  ezk_bool fs = ezk_bflag8_get(state_flags, EZK_WINDOW_BORDERLESS);
 
-  XSendEvent(win->display, win->parent,
-             false,
-             SubstructureNotifyMask | SubstructureRedirectMask,
-             &e2);
+  // disable borderless if it isnt active
+  send_state_message(win, win->NET_WM_STATE_FS, 0, 
+      fs ? ezk_bflag8_get(state_flags, EZK_WINDOW_FS) : 0);
+  
+  // disable bordered if borderless is active
+  send_state_message(win, win->NET_WM_STATE_MAX_H, win->NET_WM_STATE_MAX_V, 
+      fs ? 0 : ezk_bflag8_get(state_flags, EZK_WINDOW_FS));
+ 
+  // set if window is minimized
+  send_state_message(win, win->NET_WM_STATE_HIDDEN, 0,
+      ezk_bflag8_get(state_flags, EZK_WINDOW_MINIMISE));
 
   XFlush(win->display);
 }

@@ -1,16 +1,8 @@
-#include "ezk_api.h"
-#include "ezk_platform.h"
-#include "ezk_window/ezk_window.h"
+#include "../ezk_api.h"
+#include "../ezk_platform.h"
+#include "ezk_window.h"
 
-// Platform-specific headers
-
-#if defined(EZK_WINDOWS)
-#include "./ezk_window/win32.h"
-#elif defined(EZK_APPLE)
-#include "./ezk_window/cocoa.h"
-#elif defined(EZK_LINUX)
-#include "./ezk_window/x11.h"
-#endif
+#include "./ezk_window_internal.h"
 
 // Statics
 static ezk_window **windows;
@@ -215,6 +207,16 @@ EZKAPI void ezk_window_flip_fs(ezk_win_id id) {
 
 EZKAPI void ezk_window_set_borderless(ezk_win_id id, ezk_bool borderless) {
   ezk_bflag8_set(&windows[id]->state_flags, EZK_WINDOW_BORDERLESS, borderless);
+  ezk_internal_update_state_flags(id, windows[id]->state_flags);
+}
+
+EZKAPI void ezk_window_set_minimised(ezk_win_id id, ezk_bool minimised) {
+  ezk_bflag8_set(&windows[id]->state_flags, EZK_WINDOW_MINIMISE, minimised);
+  ezk_internal_update_state_flags(id, windows[id]->state_flags);
+}
+
+EZKAPI void ezk_window_flip_minimised(ezk_win_id id) {
+  ezk_bflag8_flip(&windows[id]->state_flags, EZK_WINDOW_MINIMISE);
   ezk_internal_update_state_flags(id, windows[id]->state_flags);
 }
 

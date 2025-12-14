@@ -1,34 +1,66 @@
 BIN = ./bin
+BUILD = ./build
+LIB = ./lib
 SRC = ./src
-
-SRCS = $(shell find $(SRC) -name "*.c")
-OBJS = $(SRCS:$(SRC)/%.c=$(BIN)/%.o)
+TST = ./tst
+PREFIX = ezk
 
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -MMD -MP -g
-LD = -lm
+AR = ar
+CFLAGS ?= -Wall -Wextra -O2 -MMD -MP -g -fPIC
+LDFLAGS = -lm
 
-UNAME := $(shell uname -s)
+ifndef OS
+UNAME_S := $(shell uname -s 2>/dev/null)
 
-ifeq ($(UNAME), Linux)
-	LD += -lX11
+ifeq ($(UNAME_S),Linux)
+OS := linux
+SOEXT := so
+LDFLAGS += -lX11
+else ifeq ($(UNAME_S),Darwin)
+OS := macos
+SOEXT := dylib
+else ifeq ($(OS),Windows_NT)
+OS := windows
+SOEXT = dll
+else
+OS := unknown
 endif
+endif # OS
 
-$(BIN):
-	mkdir $@
+SRC_C := $(shell find $(SRC) -maxdepth 1 -name '*.c')
+SRC_MOD_C := $(shell find $(SRC) -mindepth 2 -maxdepth 2 -name '*.c' ! -name '*_internal.c')
+SRC_INT_C := $(shell find $(SRC) -mindepth 3 -name '*_internal.c' | grep '/$(OS)/')
 
-dirs: $(BIN)
+OBJ := $(patsubst $(SRC)/%.c,$(BUILD)/%.o,$(SRC_C) $(SRC_MOD_C) $(SRC_INT_C))
 
-$(OBJS) : $(BIN)/%.o : $(SRC)/%.c | dirs
-	 $(CC) $(CFLAGS) -c $< -o $@
+TST_SRC = $(shell find $(TST) -name '*_test.c')
+TST_BIN = $(patsubst $(TST)/%.c,$(BIN)/%,$(TST_SRC))
 
-$(BIN)/ezk_window.o : $(BIN)/ezk_bflag.o
+LIB_NAME    := lib$(PREFIX).$(SOEXT)
+LIB_TARGET  := $(LIB)/$(LIB_NAME)
 
-window: $(BIN)/ezk_bflag.o $(BIN)/ezk_window.o 
-	$(CC) -o $(BIN)/window  ./tests/window_test.c $^ $(LD) -g
+all: dirs $(LIB_TARGET) tests
 
--include $(wildcard $(BIN)/*.d)
+dirs:
+	@mkdir -p $(BIN) $(BUILD) $(LIB)
 
-clean: 
-	rm -rf $(BIN)/
-	rm -rf $(SRC)/*.gch
+$(BUILD)/%.o: $(SRC)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(LIB_TARGET): $(OBJ)
+	$(CC) -shared $^ -o $@ $(LDFLAGS)
+
+$(BIN)/%: $(TST)/%.c $(LIB_TARGET)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $< -L$(LIB) -l$(PREFIX) $(LDFLAGS) -o $@
+
+tests: $(TST_BIN)
+
+clean:
+	@echo $(OBJ)
+	rm -rf $(BUILD) $(BIN) $(LIB)
+
+.PHONY: all clean tests dirs
+-include $(shell find $(BIN) -name '*.d' 2>/dev/null)

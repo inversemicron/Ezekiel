@@ -177,6 +177,8 @@ EZKAPI ezk_bool ezk_window_closed(ezk_win_id id);
 EZKAPI void ezk_window_set_fs(ezk_win_id id, ezk_bool fs);
 EZKAPI void ezk_window_flip_fs(ezk_win_id id);
 EZKAPI void ezk_window_set_borderless(ezk_win_id id, ezk_bool borderless);
+EZKAPI void ezk_window_set_minimised(ezk_win_id id, ezk_bool minimised);
+EZKAPI void ezk_window_flip_minimised(ezk_win_id id);
 EZKAPI void ezk_window_set_dims(ezk_win_id id, ezk_v2i dims, ezk_bool inc);
 EZKAPI void ezk_window_set_pos(ezk_win_id id, ezk_v2i pos, ezk_bool inc);
 EZKAPI void ezk_window_set_name(ezk_win_id id, ezk_string name);
