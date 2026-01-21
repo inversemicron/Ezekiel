@@ -6,6 +6,7 @@
 // Hangul, Russian, InScript, Nordic languages, Turkish Q & F, potentially braille 
 // input, and just other more ergonomic layouts. 
 
+#include "ezk_api.h"
 #include "ezk_primitives.h"
 
 typedef enum {

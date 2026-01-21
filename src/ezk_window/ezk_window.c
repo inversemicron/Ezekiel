@@ -48,7 +48,7 @@ void free_window(ezk_window* win) {
   free_ids[free_id_count] = win->id;
 
   windows[win->id] = 0; // this means we can skip over deleted windows
-  // don't reduce win_count as it describes the length of the windows buffer
+  // don't reduce win_count as that describes the length of the windows buffer
 
   free(win);
 
@@ -85,7 +85,8 @@ EZKAPI ezk_win_id ezk_window_create(ezk_win_desc desc) {
   ezk_bflag8_set(&win->state_flags, EZK_WINDOW_BORDERLESS, desc.borderless);
   ezk_bflag8_set(&win->state_flags, EZK_WINDOW_EXCLUSIVE, desc.exclusive);
   ezk_bflag8_set(&win->state_flags, EZK_WINDOW_MENU, desc.menu);
-  
+  ezk_bflag8_set(&win->state_flags, EZK_WINDOW_ONTOP, desc.ontop);
+ 
   ezk_internal_create_window(win->id, desc);
 
   ezk_internal_update_state_flags(win->id, win->state_flags);
@@ -98,8 +99,8 @@ EZKAPI ezk_win_id ezk_window_create(ezk_win_desc desc) {
 EZKAPI void ezk_window_request_close(ezk_win_id id) {
   ezk_window *win = windows[id];
   win->close_requested = true;
-  if (win->event_cb) // manually send a close request event
-    win->event_cb(id, (ezk_event){EZK_EVENT_CLOSE_REQUESTED});
+  if (win->event_cb) // manually `send` a close request event
+    win->event_cb(id, (ezk_event){EZK_EVENT_CLOSEREQUESTED});
 }
 
 EZKAPI void ezk_window_cancel_close(ezk_win_id id) {
@@ -129,10 +130,12 @@ EZKAPI void ezk_window_update(ezk_win_id id) {
       case EZK_EVENT_MOUSEMOVE:
         win->mouse.pos = ev.mousemove.mouse_pos;
         break;
-      case EZK_EVENT_CLOSE_REQUESTED:
+      case EZK_EVENT_CLOSEREQUESTED:
 	      win->close_requested = true;
-      default:
         break;
+      case EZK_EVENT_FLAGCHANGE:
+        win->state_flags = ev.flagchange.flags;
+      default: // silence, warnings
     }
 
     if (win->event_cb)
@@ -163,6 +166,8 @@ EZKAPI ezk_bool ezk_window_closed(ezk_win_id id) {
   return windows[id] == 0 || windows[id]->closed; // short-circuiting prevents segfault
 }
 
+// these all assume its a valid id
+// TODO: add some error checking, man
 EZKAPI ezk_bflag8 ezk_window_get_state_flags(ezk_win_id id) {
   return windows[id]->state_flags;
 } 
@@ -173,6 +178,14 @@ EZKAPI ezk_bool ezk_window_get_fs(ezk_win_id id) {
 
 EZKAPI ezk_bool ezk_window_get_borderless(ezk_win_id id) {
   return ezk_bflag8_get(windows[id]->state_flags, EZK_WINDOW_BORDERLESS);
+}
+
+EZKAPI ezk_bool ezk_window_get_minimized(ezk_win_id id) {
+  return ezk_bflag8_get(windows[id]->state_flags, EZK_WINDOW_MINIMISE);
+}
+
+EZKAPI ezk_bool ezk_window_get_ontop(ezk_win_id id) {
+  return ezk_bflag8_get(windows[id]->state_flags, EZK_WINDOW_ONTOP);
 }
 
 EZKAPI ezk_v2i ezk_window_get_dims(ezk_win_id id) {
@@ -196,48 +209,61 @@ EZKAPI ezk_bool ezk_window_is_key_down(ezk_win_id id, ezk_key key) {
 }
 
 EZKAPI void ezk_window_set_fs(ezk_win_id id, ezk_bool fs) {
-  ezk_bflag8_set(&windows[id]->state_flags, EZK_WINDOW_FS, fs);
-  ezk_internal_update_state_flags(id, windows[id]->state_flags);
+  ezk_window *win = windows[id];
+  ezk_bflag8_set(&win->state_flags, EZK_WINDOW_FS, fs);
+  ezk_internal_update_state_flags(id, win->state_flags);
 }
 
 EZKAPI void ezk_window_flip_fs(ezk_win_id id) {
-  ezk_bflag8_flip(&windows[id]->state_flags, EZK_WINDOW_FS);
-  ezk_internal_update_state_flags(id, windows[id]->state_flags);
+  ezk_window *win = windows[id];
+  ezk_bflag8_flip(&win->state_flags, EZK_WINDOW_FS);
+  ezk_internal_update_state_flags(id, win->state_flags);
 }
 
 EZKAPI void ezk_window_set_borderless(ezk_win_id id, ezk_bool borderless) {
-  ezk_bflag8_set(&windows[id]->state_flags, EZK_WINDOW_BORDERLESS, borderless);
-  ezk_internal_update_state_flags(id, windows[id]->state_flags);
+  ezk_window *win = windows[id];
+  ezk_bflag8_set(&win->state_flags, EZK_WINDOW_BORDERLESS, borderless);
+  ezk_internal_update_state_flags(id, win->state_flags);
 }
 
 EZKAPI void ezk_window_set_minimised(ezk_win_id id, ezk_bool minimised) {
-  ezk_bflag8_set(&windows[id]->state_flags, EZK_WINDOW_MINIMISE, minimised);
-  ezk_internal_update_state_flags(id, windows[id]->state_flags);
+  ezk_window *win = windows[id];
+  ezk_bflag8_set(&win->state_flags, EZK_WINDOW_MINIMISE, minimised);
+  ezk_internal_update_state_flags(id, win->state_flags);
 }
 
 EZKAPI void ezk_window_flip_minimised(ezk_win_id id) {
-  ezk_bflag8_flip(&windows[id]->state_flags, EZK_WINDOW_MINIMISE);
-  ezk_internal_update_state_flags(id, windows[id]->state_flags);
+  ezk_window *win = windows[id];
+  ezk_bflag8_flip(&win->state_flags, EZK_WINDOW_MINIMISE);
+  ezk_internal_update_state_flags(id, win->state_flags);
 }
 
-EZKAPI void ezk_window_set_dims(ezk_win_id id, ezk_v2i dims, ezk_bool inc) {
-  if (inc) {
-    windows[id]->dims.x += dims.x;
-    windows[id]->dims.y += dims.y;
-  } else {
-    windows[id]->dims = dims;
-  }
-  ezk_internal_set_dims(id, windows[id]->dims);
+EZKAPI void ezk_window_set_ontop(ezk_win_id id, ezk_bool ontop) {
+  ezk_window *win = windows[id];
+  ezk_bflag8_set(&win->state_flags, EZK_WINDOW_ONTOP, ontop);
+  ezk_internal_update_state_flags(id, win->state_flags);
 }
 
-EZKAPI void ezk_window_set_pos(ezk_win_id id, ezk_v2i pos, ezk_bool inc) {
+EZKAPI void ezk_window_set_dims(ezk_win_id id, ezk_v2i dims, ezk_bool inc) { 
+  ezk_window *win = windows[id];
   if (inc) {
-    windows[id]->pos.x += pos.x;
-    windows[id]->pos.y += pos.y;
+    win->dims.x += dims.x;
+    win->dims.y += dims.y;
   } else {
-    windows[id]->pos = pos;
+    win->dims = dims;
   }
-  ezk_internal_set_pos(id, windows[id]->pos);
+  ezk_internal_set_dims(id, win->dims);
+}
+
+EZKAPI void ezk_window_set_pos(ezk_win_id id, ezk_v2i pos, ezk_bool inc) { 
+  ezk_window *win = windows[id];
+  if (inc) {
+    win->pos.x += pos.x;
+    win->pos.y += pos.y;
+  } else {
+    win->pos = pos;
+  }
+  ezk_internal_set_pos(id, win->pos);
 }
 
 EZKAPI void ezk_window_set_name(ezk_win_id id, ezk_string name) {

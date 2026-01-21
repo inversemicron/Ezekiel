@@ -1,14 +1,16 @@
 ## Basic
-<X> Window creation/destruction
-<X> Resizing (manual or programmatic)
-<X> Moving windows
-<X> Window title setting
-<X> Close event (WM_DELETE_WINDOW)
-<X> Fullscreen toggle
-<X> Borderless window
-<O> Always-on-top flag
-<O> Minimize/Restore/Maximize
+<WL> Window creation/destruction
+<WL> Resizing (manual or programmatic)
+<WL> Moving windows
+<WL> Window title setting
+<WL> Close event (WM_DELETE_WINDOW)
+<WL> Fullscreen toggle
+<WL> Borderless window
+<L> Always-on-top flag
+<L> Minimize/Restore/Maximize
 <> Multi-monitor awareness
+<> Fix window position offsets
+<> Exclusive fullscreen
 <> DPI awareness / scaling
 <> Transparent windows
 <> Custom cursor / hide cursor
@@ -20,7 +22,6 @@
 <> Window icon setting (XWMHints / _NET_WM_ICON)
  
 ## Keyboard Input
--- switch keycodes to using a .c file!! now !!
 <X> Key press / release
 <X> Unicode character input (using layout)
 <X> Modifier key support (Shift/Ctrl/Alt/Meta)

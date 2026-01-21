@@ -1,8 +1,4 @@
-#include "X11/Xlib.h"
-
 #include "../ezk_window.h"
-
-#include <sys/time.h>
 
 typedef struct {
   ezk_win_id id;
@@ -15,17 +11,16 @@ typedef struct {
   XSetWindowAttributes wa;
   ezk_u32 ev_mask;
 
-  ezk_v2i current_pos;
-  ezk_v2i current_dims;
-    
-  ezk_v2i windowed_pos;
-  ezk_v2i windowed_dims;
-    
+  ezk_v2i current_dims; // used for GC right now, may not be needed later
+
+  ezk_bool borderless; // get this from updating state flags cause it doesn't have an atom.
+
   Atom NET_WM_STATE;
   Atom NET_WM_STATE_FS;
   Atom NET_WM_STATE_MAX_H;
   Atom NET_WM_STATE_MAX_V;
   Atom NET_WM_STATE_HIDDEN;
+  Atom NET_WM_STATE_ABOVE;
 
   Atom WM_PROTOCOLS;
   Atom WM_DELETE_WINDOW;
@@ -57,7 +52,8 @@ static void init_atoms(ezk_x11_window *win) {
   win->NET_WM_STATE_MAX_H = XInternAtom(win->display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
   win->NET_WM_STATE_MAX_V = XInternAtom(win->display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
   win->NET_WM_STATE_HIDDEN = XInternAtom(win->display, "_NET_WM_STATE_HIDDEN", False);
-
+  win->NET_WM_STATE_ABOVE = XInternAtom(win->display, "_NET_WM_STATE_ABOVE", False);
+  
   win->WM_PROTOCOLS = XInternAtom(win->display, "WM_PROTOCOLS", False);
   win->WM_DELETE_WINDOW = XInternAtom(win->display, "WM_DELETE_WINDOW", False);
 }
@@ -67,11 +63,44 @@ static void show_window(ezk_x11_window *win) {
   XRaiseWindow(win->display, win->handle);
   XFlush(win->display);
 
-  // Wait for the window to be visible (realized)
+  // wait for the window to be visible
   XEvent ev;
   do {
     XNextEvent(win->display, &ev);
   } while (ev.type != MapNotify || ev.xmap.window != win->handle);
+}
+
+static ezk_bflag8 get_state_flags(ezk_x11_window *win) {
+  Atom typeAtom;
+  ezk_i32 format;
+  ezk_u64 n, extra;
+  Atom* atoms = NULL;
+  ezk_bflag8 flags = 0;
+ 
+  if (XGetWindowProperty(win->display, win->handle, win->NET_WM_STATE, 0, LONG_MAX, false, XA_ATOM,
+        &typeAtom, &format, &n, &extra,(unsigned char **)&atoms) != Success) {
+        return false;
+  }
+
+  for (ezk_u64 i = 0; i < n; i++) {
+    Atom atom = atoms[i];
+    if (atom == win->NET_WM_STATE_FS) {
+      ezk_bflag8_set(&flags,EZK_WINDOW_FS, true);
+    } else if (atom == win->NET_WM_STATE_MAX_V || atom == win->NET_WM_STATE_MAX_H) {
+      // gonna assume just one of these means we are maximised
+      ezk_bflag8_set(&flags,EZK_WINDOW_FS,true);
+    } else if (atom == win->NET_WM_STATE_HIDDEN) {
+      ezk_bflag8_set(&flags,EZK_WINDOW_MINIMISE,true);
+    } else if (atom == win->NET_WM_STATE_ABOVE) {
+      ezk_bflag8_set(&flags,EZK_WINDOW_ONTOP,true);
+    }
+  }
+
+  // manually set borderless, as it doesn't directy correspond to a flag
+  ezk_bflag8_set(&flags, EZK_WINDOW_BORDERLESS, win->borderless);
+
+  return flags;
+
 }
 
 static ezk_event translate_event(ezk_x11_window *win, XEvent ev) {
@@ -112,7 +141,7 @@ static ezk_event translate_event(ezk_x11_window *win, XEvent ev) {
       translated.type = EZK_EVENT_DIMCHANGE;
       translated.dimension.pos = (ezk_v2i) {ev.xconfigure.x, ev.xconfigure.y};
       translated.dimension.dims = (ezk_v2i) {ev.xconfigure.width, ev.xconfigure.height};
-      win->current_pos = translated.dimension.pos;
+      
       win->current_dims = translated.dimension.dims;
       break;
     case FocusIn:
@@ -126,15 +155,24 @@ static ezk_event translate_event(ezk_x11_window *win, XEvent ev) {
       XFillRectangle(win->display, win->handle, win->gc, 0, 0, 
           win->current_dims.x, win->current_dims.y);
       break;
+    case PropertyNotify:
+      if (ev.xproperty.atom == win->NET_WM_STATE) {
+        translated.type = EZK_EVENT_FLAGCHANGE;
+        translated.flagchange.flags = get_state_flags(win);
+        break;
+      }
+      translated.type = EZK_EVENT_UNKNOWN;
+      break;
     case ClientMessage:
       message_type = ev.xclient.message_type;
       if (message_type == win->WM_PROTOCOLS) {
         if (ev.xclient.data.l[0] == (ezk_i64) win->WM_DELETE_WINDOW) {
-          translated.type = EZK_EVENT_CLOSE_REQUESTED;
+          translated.type = EZK_EVENT_CLOSEREQUESTED;
           break;
         }
-      }
-      [[fallthrough]]; // C23 and up
+      } 
+      translated.type = EZK_EVENT_UNKNOWN;
+      break;
     default:
       // this includes MappingNotify and Selection Events. Might be worth looking into.
       translated.type = EZK_EVENT_UNKNOWN;
@@ -166,19 +204,25 @@ static void send_state_message(ezk_x11_window *win, Atom atom1, Atom atom2, ezk_
 void ezk_internal_update_state_flags(ezk_win_id id, ezk_bflag8 state_flags) {
   ezk_x11_window *win = int_windows[id];
   
-  ezk_bool fs = ezk_bflag8_get(state_flags, EZK_WINDOW_BORDERLESS);
+  ezk_bool borderless = ezk_bflag8_get(state_flags, EZK_WINDOW_BORDERLESS);
+
+  win->borderless = borderless; // update borderless value
 
   // disable borderless if it isnt active
   send_state_message(win, win->NET_WM_STATE_FS, 0, 
-      fs ? ezk_bflag8_get(state_flags, EZK_WINDOW_FS) : 0);
+      borderless ? ezk_bflag8_get(state_flags, EZK_WINDOW_FS) : 0);
   
   // disable bordered if borderless is active
   send_state_message(win, win->NET_WM_STATE_MAX_H, win->NET_WM_STATE_MAX_V, 
-      fs ? 0 : ezk_bflag8_get(state_flags, EZK_WINDOW_FS));
+      borderless ? 0 : ezk_bflag8_get(state_flags, EZK_WINDOW_FS));
  
   // set if window is minimized
   send_state_message(win, win->NET_WM_STATE_HIDDEN, 0,
       ezk_bflag8_get(state_flags, EZK_WINDOW_MINIMISE));
+
+  // set if window is always on top
+  send_state_message(win, win->NET_WM_STATE_ABOVE, 0,
+      ezk_bflag8_get(state_flags, EZK_WINDOW_ONTOP));
 
   XFlush(win->display);
 }
@@ -242,11 +286,6 @@ void ezk_internal_create_window(ezk_win_id id, ezk_win_desc desc) {
   ezk_internal_set_name(win->id, desc.name);
   win->gc = XCreateGC(win->display, win->handle,0,NULL);
   win->screen = XScreenOfDisplay(win->display,0);
-
-  win->current_pos = desc.pos;
-  win->windowed_pos = desc.pos;
-  win->current_dims = desc.dims;
-  win->windowed_dims = desc.dims;
 
   Atom protocols[] = {
       win->WM_DELETE_WINDOW

@@ -19,6 +19,10 @@ void on_event(ezk_win_id id, ezk_event ev) {
         case EZK_KEY_THREE:
           ezk_window_flip_minimised(id);
           break;
+        case EZK_KEY_FOUR:
+          printf("%b\n", ezk_window_get_ontop(id));
+          ezk_window_set_ontop(id, !ezk_window_get_ontop(id));
+          break;
         case EZK_KEY_ARROWUP:
           ezk_window_set_pos(id, (ezk_v2i) {0, -10}, true);
           break;
@@ -37,7 +41,7 @@ void on_event(ezk_win_id id, ezk_event ev) {
         default:
       }
       break;
-    case EZK_EVENT_CLOSE_REQUESTED:
+    case EZK_EVENT_CLOSEREQUESTED:
       printf("Quit requested for window id: %d\n", id);
       if(ezk_window_is_key_down(id, EZK_KEY_z)) {
       	ezk_window_cancel_close(id); // cancels if Z is down
@@ -60,6 +64,7 @@ ezk_win_desc desc = {
     .borderless = false,
     .exclusive = false,
     .menu = false,
+    .ontop = false,
 
     .name = "ezk_window test",
 
