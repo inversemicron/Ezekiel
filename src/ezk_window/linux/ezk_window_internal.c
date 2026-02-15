@@ -1,31 +1,35 @@
 #include "../ezk_window.h"
+#include <xcb/xcb.h>
 
 typedef struct {
   ezk_win_id id;
 
-  Display *display;
-  Screen *screen;
-  Window parent;
+  xcb_connection_t *display;
+  xcb_screen_t *screen;
+  xcb_window_t parent;
 
-  Window handle;
-  XSetWindowAttributes wa;
+  xcb_window_t handle;
+  
   ezk_u32 ev_mask;
 
   ezk_v2i current_dims; // used for GC right now, may not be needed later
 
   ezk_bool borderless; // get this from updating state flags cause it doesn't have an atom.
 
-  Atom NET_WM_STATE;
-  Atom NET_WM_STATE_FS;
-  Atom NET_WM_STATE_MAX_H;
-  Atom NET_WM_STATE_MAX_V;
-  Atom NET_WM_STATE_HIDDEN;
-  Atom NET_WM_STATE_ABOVE;
+  xcb_atom_t NET_WM_STATE;
+  xcb_atom_t NET_WM_STATE_FS;
+  xcb_atom_t NET_WM_STATE_MAX_H;
+  xcb_atom_t NET_WM_STATE_MAX_V;
+  xcb_atom_t NET_WM_STATE_HIDDEN;
+  xcb_atom_t NET_WM_STATE_ABOVE;
 
-  Atom WM_PROTOCOLS;
-  Atom WM_DELETE_WINDOW;
+  xcb_atom_t WM_PROTOCOLS;
+  xcb_atom_t WM_DELETE_WINDOW;
 
-  GC gc;
+  xcb_atom_t NET_WM_NAME;
+  xcb_atom_t UTF8_STRING;
+
+  xcb_gcontext_t gc;
 } ezk_x11_window;
 
 static ezk_x11_window **int_windows;
@@ -46,127 +50,156 @@ static ezk_time get_time() { // temporary
   return (ezk_time) {tv.tv_sec, tv.tv_usec};
 }
 
-static void init_atoms(ezk_x11_window *win) {
-  win->NET_WM_STATE = XInternAtom(win->display, "_NET_WM_STATE", False);
-  win->NET_WM_STATE_FS = XInternAtom(win->display, "_NET_WM_STATE_FULLSCREEN", False);
-  win->NET_WM_STATE_MAX_H = XInternAtom(win->display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
-  win->NET_WM_STATE_MAX_V = XInternAtom(win->display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
-  win->NET_WM_STATE_HIDDEN = XInternAtom(win->display, "_NET_WM_STATE_HIDDEN", False);
-  win->NET_WM_STATE_ABOVE = XInternAtom(win->display, "_NET_WM_STATE_ABOVE", False);
-  
-  win->WM_PROTOCOLS = XInternAtom(win->display, "WM_PROTOCOLS", False);
-  win->WM_DELETE_WINDOW = XInternAtom(win->display, "WM_DELETE_WINDOW", False);
+// add error checking to this!!
+static xcb_atom_t get_atom(ezk_x11_window *win, ezk_string name) {
+  xcb_intern_atom_cookie_t c = xcb_intern_atom(win->display, 0, strlen(name), name);
+  xcb_intern_atom_reply_t *r = xcb_intern_atom_reply(win->display, c, NULL);
+  xcb_atom_t atom = r->atom;
+  free(r);
+  return atom;
 }
 
-static void show_window(ezk_x11_window *win) {
-  XMapWindow(win->display, win->handle);
-  XRaiseWindow(win->display, win->handle);
-  XFlush(win->display);
+static void init_atoms(ezk_x11_window *win) {
+  win->NET_WM_STATE = get_atom(win,"_NET_WM_STATE");
+  win->NET_WM_STATE_FS = get_atom(win,"_NET_WM_STATE_FULLSCREEN");
+  win->NET_WM_STATE_MAX_H = get_atom(win,"_NET_WM_STATE_MAXIMIZED_HORZ");
+  win->NET_WM_STATE_MAX_V = get_atom(win,"_NET_WM_STATE_MAXIMIZED_VERT");
+  win->NET_WM_STATE_HIDDEN = get_atom(win,"_NET_WM_STATE_HIDDEN");
+  win->NET_WM_STATE_ABOVE = get_atom(win,"_NET_WM_STATE_ABOVE"); 
+  
+  win->WM_PROTOCOLS = get_atom(win,"WM_PROTOCOLS");
+  win->WM_DELETE_WINDOW = get_atom(win,"WM_DELETE_WINDOW");
 
-  // wait for the window to be visible
-  XEvent ev;
-  do {
-    XNextEvent(win->display, &ev);
-  } while (ev.type != MapNotify || ev.xmap.window != win->handle);
+  win->NET_WM_NAME = get_atom(win,"_NET_WM_NAME");
+
+  win->UTF8_STRING = get_atom(win,"UTF8_STRING");
+}
+
+static inline ezk_u8 get_xcb_evtype(xcb_generic_event_t *ev) { return ev->response_type & ~0x80; }
+
+static void show_window(ezk_x11_window *win) {
+  xcb_map_window(win->display, win->handle);
+  xcb_flush(win->display);
 }
 
 static ezk_bflag8 get_state_flags(ezk_x11_window *win) {
-  Atom typeAtom;
-  ezk_i32 format;
-  ezk_u64 n, extra;
-  Atom* atoms = NULL;
+  ezk_u8 format;
+  xcb_atom_t type_atom;
+  ezk_u32 n;
+  void *data = NULL;
+  xcb_atom_t *atoms = NULL;
   ezk_bflag8 flags = 0;
  
-  if (XGetWindowProperty(win->display, win->handle, win->NET_WM_STATE, 0, LONG_MAX, false, XA_ATOM,
-        &typeAtom, &format, &n, &extra,(unsigned char **)&atoms) != Success) {
-        return false;
+  xcb_get_property_cookie_t cookie = xcb_get_property(win->display, 0, 
+      win->handle, win->NET_WM_STATE, XCB_GET_PROPERTY_TYPE_ANY, 0, 1024);
+
+  // error checking!!
+  xcb_get_property_reply_t* reply = xcb_get_property_reply(win->display, cookie, NULL);
+  if (!reply) {
+    return false;
   }
 
-  for (ezk_u64 i = 0; i < n; i++) {
-    Atom atom = atoms[i];
-    if (atom == win->NET_WM_STATE_FS) {
-      ezk_bflag8_set(&flags,EZK_WINDOW_FS, true);
-    } else if (atom == win->NET_WM_STATE_MAX_V || atom == win->NET_WM_STATE_MAX_H) {
-      // gonna assume just one of these means we are maximised
-      ezk_bflag8_set(&flags,EZK_WINDOW_FS,true);
-    } else if (atom == win->NET_WM_STATE_HIDDEN) {
-      ezk_bflag8_set(&flags,EZK_WINDOW_MINIMISE,true);
-    } else if (atom == win->NET_WM_STATE_ABOVE) {
-      ezk_bflag8_set(&flags,EZK_WINDOW_ONTOP,true);
+  type_atom = reply->type;
+  format = reply->format;
+  n = xcb_get_property_value_length(reply) / 4; // div 4 cause 32-bits per value
+  data = xcb_get_property_value(reply);
+
+  if(type_atom == XCB_ATOM_ATOM && format == 32) {
+    atoms = (xcb_atom_t*)data;
+    for (ezk_u64 i = 0; i < n; i++) {
+      xcb_atom_t atom = atoms[i];
+      if (atom == win->NET_WM_STATE_FS) {
+        ezk_bflag8_set(&flags,EZK_WINDOW_FS, true);
+      } else if (atom == win->NET_WM_STATE_MAX_V || atom == win->NET_WM_STATE_MAX_H) {
+        // gonna assume just one of these means we are maximised
+        ezk_bflag8_set(&flags,EZK_WINDOW_FS,true);
+      } else if (atom == win->NET_WM_STATE_HIDDEN) {
+        ezk_bflag8_set(&flags,EZK_WINDOW_MINIMISE,true);
+      } else if (atom == win->NET_WM_STATE_ABOVE) {
+        ezk_bflag8_set(&flags,EZK_WINDOW_ONTOP,true);
+      }
     }
   }
 
   // manually set borderless, as it doesn't directy correspond to a flag
   ezk_bflag8_set(&flags, EZK_WINDOW_BORDERLESS, win->borderless);
 
+  free(reply);
   return flags;
-
 }
 
-static ezk_event translate_event(ezk_x11_window *win, XEvent ev) {
+static ezk_event translate_event(ezk_x11_window *win, xcb_generic_event_t *ge) {
   ezk_event translated;
 
-  Atom message_type; // for client events
-
-  switch (ev.type) {
-    case KeyPress:
+  switch (get_xcb_evtype(ge)) {
+    case XCB_KEY_PRESS:
       translated.type = EZK_EVENT_KEYDOWN;
-      translated.key.key = ezk_key_x11_to_ezk(ev.xkey.keycode);
+      xcb_key_press_event_t *kpe = (xcb_key_press_event_t*)ge;
+      translated.key.key = ezk_key_x11_to_ezk(kpe->detail);
       break;
-    case KeyRelease:
+    case XCB_KEY_RELEASE:
       translated.type = EZK_EVENT_KEYUP;
-      translated.key.key = ezk_key_x11_to_ezk(ev.xkey.keycode);
+      xcb_key_release_event_t *kre = (xcb_key_release_event_t*)ge;
+      translated.key.key = ezk_key_x11_to_ezk(kre->detail);
       break;
-    case ButtonPress:
+    case XCB_BUTTON_PRESS:
       translated.type = EZK_EVENT_BUTTONDOWN;
-      translated.button.button = ev.xbutton.button;
+      xcb_button_press_event_t *bpe = (xcb_button_press_event_t*)ge;
+      translated.button.button = bpe->detail;
       break;
-    case ButtonRelease:
+    case XCB_BUTTON_RELEASE:
       translated.type = EZK_EVENT_BUTTONUP;
-      translated.button.button = ev.xbutton.button;
+      xcb_button_release_event_t *bre = (xcb_button_release_event_t*)ge;
+      translated.button.button = bre->detail;
       break;
-    case MotionNotify:
+    case XCB_MOTION_NOTIFY:
       translated.type = EZK_EVENT_MOUSEMOVE;
-      translated.mousemove.mouse_pos = (ezk_v2i) {ev.xmotion.x, ev.xmotion.y};
+      xcb_motion_notify_event_t *mne = (xcb_motion_notify_event_t*)ge;
+      translated.mousemove.mouse_pos = (ezk_v2i) {mne->event_x,mne->event_y};
       break;
-    case EnterNotify:
+    case XCB_ENTER_NOTIFY:
       translated.type = EZK_EVENT_MOUSEENTER;
-      translated.crossing.mouse_pos = (ezk_v2i) {ev.xcrossing.x, ev.xcrossing.y};
+      xcb_enter_notify_event_t *ene = (xcb_enter_notify_event_t*)ge;
+      translated.crossing.mouse_pos = (ezk_v2i) {ene->event_x,ene->event_y};
       break;
-    case LeaveNotify:
+    case XCB_LEAVE_NOTIFY:
       translated.type = EZK_EVENT_MOUSEEXIT;
-      translated.crossing.mouse_pos = (ezk_v2i) {ev.xcrossing.x, ev.xcrossing.y};
+      xcb_leave_notify_event_t *lne = (xcb_leave_notify_event_t*)ge;
+      translated.crossing.mouse_pos = (ezk_v2i) {lne->event_x,lne->event_y};
       break;
-    case ConfigureNotify: 
+    case XCB_CONFIGURE_NOTIFY: 
       translated.type = EZK_EVENT_DIMCHANGE;
-      translated.dimension.pos = (ezk_v2i) {ev.xconfigure.x, ev.xconfigure.y};
-      translated.dimension.dims = (ezk_v2i) {ev.xconfigure.width, ev.xconfigure.height};
+      xcb_configure_notify_event_t *cne = (xcb_configure_notify_event_t*)ge;
+      translated.dimension.pos = (ezk_v2i) {cne->x,cne->y};
+      translated.dimension.dims = (ezk_v2i) {cne->width,cne->height};
       
       win->current_dims = translated.dimension.dims;
       break;
-    case FocusIn:
+    case XCB_FOCUS_IN:
       translated.type = EZK_EVENT_FOCUSIN;
       break;
-    case FocusOut:
+    case XCB_FOCUS_OUT:
       translated.type = EZK_EVENT_FOCUSOUT;
       break;
-    case Expose:
+    case XCB_EXPOSE:
       translated.type = EZK_EVENT_UNKNOWN;
-      XFillRectangle(win->display, win->handle, win->gc, 0, 0, 
-          win->current_dims.x, win->current_dims.y);
+      xcb_rectangle_t rect = {0,0,win->current_dims.x,win->current_dims.y};
+      
+      xcb_poly_fill_rectangle(win->display,win->handle,win->gc,1,&rect);
       break;
-    case PropertyNotify:
-      if (ev.xproperty.atom == win->NET_WM_STATE) {
+    case XCB_PROPERTY_NOTIFY:
+      xcb_property_notify_event_t *pne = (xcb_property_notify_event_t*)ge;
+      if (pne->atom == win->NET_WM_STATE) {
         translated.type = EZK_EVENT_FLAGCHANGE;
         translated.flagchange.flags = get_state_flags(win);
         break;
       }
       translated.type = EZK_EVENT_UNKNOWN;
       break;
-    case ClientMessage:
-      message_type = ev.xclient.message_type;
-      if (message_type == win->WM_PROTOCOLS) {
-        if (ev.xclient.data.l[0] == (ezk_i64) win->WM_DELETE_WINDOW) {
+    case XCB_CLIENT_MESSAGE:
+      xcb_client_message_event_t *cme = (xcb_client_message_event_t *)ge;
+      if (cme->type == win->WM_PROTOCOLS) {
+        if (cme->data.data32[0] == (ezk_i64) win->WM_DELETE_WINDOW) {
           translated.type = EZK_EVENT_CLOSEREQUESTED;
           break;
         }
@@ -180,25 +213,24 @@ static ezk_event translate_event(ezk_x11_window *win, XEvent ev) {
   return translated;
 }
 
-static void send_state_message(ezk_x11_window *win, Atom atom1, Atom atom2, ezk_u64 val) {
-  XEvent e;
-  memset(&e, 0, sizeof(XEvent));
+static void send_state_message(ezk_x11_window *win, xcb_atom_t atom1, xcb_atom_t atom2, ezk_u64 val) {
+  xcb_client_message_event_t cme;
+  memset(&cme, 0, sizeof(xcb_client_message_event_t));
 
-  e.type = ClientMessage;
-  e.xclient.window = win->handle;
-  e.xclient.format = 32;
-  e.xclient.message_type = win->NET_WM_STATE;
+  cme.response_type = XCB_CLIENT_MESSAGE;
+  cme.window = win->handle;
+  cme.format = 32;
+  cme.type = win->NET_WM_STATE;
   
-  e.xclient.data.l[0] = val;
-  e.xclient.data.l[1] = atom1;
-  e.xclient.data.l[2] = atom2;
-  e.xclient.data.l[3] = 1;
-  e.xclient.data.l[4] = 0;
+  cme.data.data32[0] = val;
+  cme.data.data32[1] = atom1;
+  cme.data.data32[2] = atom2;
+  cme.data.data32[3] = 1;
+  cme.data.data32[4] = 0;
   
-  XSendEvent(win->display, win->parent,
-             false,
-             SubstructureNotifyMask | SubstructureRedirectMask,
-             &e);
+  xcb_send_event(win->display,0,win->handle,
+      XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
+      (const char*)&cme);
 }
 
 void ezk_internal_update_state_flags(ezk_win_id id, ezk_bflag8 state_flags) {
@@ -224,22 +256,33 @@ void ezk_internal_update_state_flags(ezk_win_id id, ezk_bflag8 state_flags) {
   send_state_message(win, win->NET_WM_STATE_ABOVE, 0,
       ezk_bflag8_get(state_flags, EZK_WINDOW_ONTOP));
 
-  XFlush(win->display);
+  xcb_flush(win->display);
 }
 
 void ezk_internal_set_dims(ezk_win_id id, ezk_v2i dims) {
   ezk_x11_window *win = int_windows[id];
-  XResizeWindow(win->display, win->handle, dims.x, dims.y);
+  ezk_u32 values[] = {dims.x, dims.y};
+
+  xcb_configure_window(win->display,win->handle,
+      XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT,values);
 }
 
 void ezk_internal_set_pos(ezk_win_id id, ezk_v2i pos) {
   ezk_x11_window *win = int_windows[id];
-  XMoveWindow(win->display, win->handle, pos.x, pos.y - 37); // ???
+  ezk_u32 values[] = {pos.x, pos.y};
+
+  xcb_configure_window(win->display,win->handle, 
+      XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y,values);
 }
 
 void ezk_internal_set_name(ezk_win_id id, ezk_string name) {
   ezk_x11_window *win = int_windows[id];
-  XStoreName(win->display, win->handle, name);
+
+  xcb_change_property(win->display,XCB_PROP_MODE_REPLACE,win->handle,
+    XCB_ATOM_WM_NAME,XCB_ATOM_STRING,8,strlen(name),name);
+
+  xcb_change_property(win->display,XCB_PROP_MODE_REPLACE,win->handle,
+    win->NET_WM_NAME,win->UTF8_STRING,8,strlen(name),name);
 }
 
 void ezk_internal_create_window(ezk_win_id id, ezk_win_desc desc) {
@@ -255,77 +298,95 @@ void ezk_internal_create_window(ezk_win_id id, ezk_win_desc desc) {
   ezk_x11_window *win = int_windows[id];
 
   win->id = id;
-  win->display = XOpenDisplay(NULL);
 
-  if (win->display == 0) {
-    fprintf(stderr, "Failed to open X11 display.\n");
+  int screen_num;
+  win->display = xcb_connect(NULL, &screen_num); 
+
+  if (xcb_connection_has_error(win->display)) {
+    fprintf(stderr, "Failed to open X display.\n");
     exit(1);
   }
 
-  win->parent = DefaultRootWindow(win->display);
+  const xcb_setup_t *setup = xcb_get_setup(win->display);
+  xcb_screen_iterator_t it = xcb_setup_roots_iterator(setup);
+
+  for (int i = 0; i < screen_num; i++)
+    xcb_screen_next(&it);
+
+  win->screen = it.data;
+  win->parent = win->screen->root;
 
   init_atoms(win);
 
-  win->ev_mask = CWBorderPixel | CWColormap | CWEventMask;
+  win->ev_mask = XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_KEY_PRESS |
+    XCB_EVENT_MASK_KEY_RELEASE | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE |
+    XCB_EVENT_MASK_POINTER_MOTION | XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_LEAVE_WINDOW |
+    XCB_EVENT_MASK_FOCUS_CHANGE | XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_STRUCTURE_NOTIFY |
+    XCB_EVENT_MASK_PROPERTY_CHANGE;
+  
+  ezk_u32 win_attr[] = {
+    win->screen->black_pixel,
+    win->ev_mask
+  }; 
 
-  win->wa.colormap = CopyFromParent;
-  win->wa.event_mask = StructureNotifyMask | KeyPressMask | KeyReleaseMask |
-                       PointerMotionMask | ButtonPressMask | ButtonReleaseMask |
-                       ExposureMask | FocusChangeMask | VisibilityChangeMask |
-                       EnterWindowMask | LeaveWindowMask | PropertyChangeMask; 
-  win->wa.background_pixmap = CopyFromParent;
+  ezk_u32 mask = XCB_CW_BORDER_PIXEL | XCB_CW_EVENT_MASK;
 
-  win->handle = XCreateWindow(win->display, win->parent,
-                              desc.pos.x, desc.pos.y,
-                              desc.dims.x, desc.dims.y,
-                              0,
-                              CopyFromParent,
-                              CopyFromParent, CopyFromParent,
-                              win->ev_mask, &(win->wa));
+  win->handle = xcb_generate_id(win->display);
+  xcb_create_window(win->display,XCB_COPY_FROM_PARENT,
+      win->handle,
+      win->parent,desc.pos.x, desc.pos.y,
+      desc.dims.x, desc.dims.y,0,
+      XCB_WINDOW_CLASS_INPUT_OUTPUT,
+      XCB_COPY_FROM_PARENT,mask,win_attr);
 
   ezk_internal_set_name(win->id, desc.name);
-  win->gc = XCreateGC(win->display, win->handle,0,NULL);
-  win->screen = XScreenOfDisplay(win->display,0);
+  
+  win->gc = xcb_generate_id(win->display);
+  xcb_create_gc(win->display,win->handle,win->gc,0,NULL);
 
-  Atom protocols[] = {
-      win->WM_DELETE_WINDOW
-  };
-
-  XSetWMProtocols(win->display, win->handle, protocols, 1);
+  xcb_change_property(win->display,XCB_PROP_MODE_REPLACE,win->handle,win->WM_PROTOCOLS,
+      XCB_ATOM_ATOM,32,1,&win->WM_DELETE_WINDOW);
 
   show_window(win);
+  printf("Window showing!\n");
 }
 
 void ezk_internal_close_window(ezk_win_id id) {
   ezk_x11_window *win = int_windows[id];
-  XUnmapWindow(win->display, win->handle);
-  XDestroyWindow(win->display, win->handle);
+  xcb_unmap_window(win->display, win->handle);
+  xcb_destroy_window(win->display, win->handle);
 
-  XFlush(win->display);
-}
-
-static ezk_u32 get_event_count(ezk_win_id id) {
-  ezk_x11_window* win = int_windows[id];
-  return XEventsQueued(win->display, QueuedAfterFlush);
+  xcb_flush(win->display);
 }
 
 static ezk_event get_next_event(ezk_x11_window *win) {
-  XEvent event;
-  XNextEvent(win->display, &event);
+  xcb_generic_event_t *event = xcb_poll_for_event(win->display);
 
-  ezk_event ezk_ev = translate_event(win, event);
-  ezk_ev.any.win_id = win->id;
-  ezk_ev.any.time = get_time();
-  return ezk_ev;
+  if(event == NULL) return (ezk_event){EZK_EVENT_NULL};
+
+  ezk_event translated = translate_event(win, event);
+  translated.any.win_id = win->id;
+  translated.any.time = get_time();
+
+  free(event);
+
+  return translated;
 }
 
 ezk_event *ezk_internal_update_evqueue(ezk_win_id id, ezk_u32 *eq_size) {
   ezk_x11_window *win = int_windows[id];
 
-  *eq_size = get_event_count(win->id);
-  ezk_event *ev_queue = malloc(*eq_size * sizeof(ezk_event));
-  for (ezk_u32 i = 0; i < *eq_size; i++) {
-    ev_queue[i] = get_next_event(win);
+  ezk_u32 capacity = 8;
+  ezk_event ev;
+
+  *eq_size = 0;
+  ezk_event *ev_queue = malloc(capacity * sizeof(ezk_event));
+  while ((ev = get_next_event(win)).type != EZK_EVENT_NULL) { 
+    if (++*eq_size >= capacity) { // ah yes, ++*, my favorite operator
+      capacity = capacity * 2;
+      ev_queue = realloc(ev_queue, capacity * sizeof(ezk_event));
+    }
+    ev_queue[*eq_size] = ev;
   }
 
   return ev_queue;

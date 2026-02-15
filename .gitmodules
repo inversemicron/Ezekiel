@@ -1,0 +1,9 @@
+[submodule "dep/xcb"]
+	path = dep/xcb
+	url = https://gitlab.freedesktop.org/xorg/lib/libxcb.git
+[submodule "dep/xcb-proto"]
+	path = dep/xcb-proto
+	url = https://gitlab.freedesktop.org/xorg/proto/xcbproto.git
+[submodule "dep/xcb-wm"]
+	path = dep/xcb-wm
+	url = https://gitlab.freedesktop.org/xorg/lib/libxcb-wm.git

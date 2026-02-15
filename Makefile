@@ -50,7 +50,7 @@ $(BUILD)/%.o: $(SRC)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(LIB_TARGET): $(OBJ)
-	$(CC) -shared $^ -o $@ $(LDFLAGS)
+	$(CC) -shared $^ -o $@ $(LDFLAGS) -g
 
 $(BIN)/%: $(TST)/%.c $(LIB_TARGET)
 	@mkdir -p $(dir $@)

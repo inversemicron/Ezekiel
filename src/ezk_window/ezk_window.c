@@ -111,7 +111,7 @@ EZKAPI void ezk_window_update(ezk_win_id id) {
   ezk_window *win = windows[id];
   if (win->closed) return; // if window has closed, just dont update it
 
-  ezk_u32 eq_size;
+  ezk_u32 eq_size = 0;
   ezk_event *ev_queue = ezk_internal_update_evqueue(win->id, &eq_size);
 
   for(ezk_u32 i = 0; i < eq_size; i++) { // loop through each event and process it

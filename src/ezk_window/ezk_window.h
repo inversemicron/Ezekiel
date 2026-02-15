@@ -15,17 +15,7 @@
 #include "../ezk_bflag.h"
 #include "../ezk_api.h"
 
-#include "X11/Xlib.h"
-#include "X11/Xatom.h"
-
 typedef ezk_u16 ezk_win_id;
-
-typedef enum {
-  EZK_WIN_BGTYPE_NONE,
-  EZK_WIN_BGTYPE_COLOR,
-  EZK_WIN_BGTYPE_COPYFROMPARENT,
-  EZK_WIN_BGTYPE_IMAGE
-} ezk_win_bg_type;
 
 typedef enum {
   EZK_BUTTON_1 = 1,
@@ -48,7 +38,8 @@ typedef enum {
   EZK_EVENT_FOCUSOUT,
   EZK_EVENT_FLAGCHANGE,
   EZK_EVENT_CLOSEREQUESTED,
-  EZK_EVENT_UNKNOWN
+  EZK_EVENT_UNKNOWN,
+  EZK_EVENT_NULL
 } ezk_event_type;
 
 typedef struct {
@@ -152,7 +143,6 @@ typedef struct {
 
   char *name;
 
-  ezk_win_bg_type bg_type;
   uint32_t bg_color;
   char *bg_image;
 

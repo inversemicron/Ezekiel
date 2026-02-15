@@ -68,7 +68,6 @@ ezk_win_desc desc = {
 
     .name = "ezk_window test",
 
-    .bg_type = EZK_WIN_BGTYPE_COPYFROMPARENT,
     .bg_color = 0,
     .bg_image = 0,
 
