@@ -100,7 +100,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg,WPARAM wParam, LPARAM lParam) {
     case WM_CLOSE:
       for(int i = 0; i < int_windows_count; i++) { // yucky linear search to find our window
         if(int_windows[i]->hwnd == hwnd) {
-          int_windows[i]->quit_requested = true; // adds EZK_EVENT_CLOSE_REQUESTED
+          int_windows[i]->quit_requested = true; // adds EZK_EVENT_CLOSEREQUESTED
                                                  // when the event queue is updated next
         }
       }
@@ -241,7 +241,7 @@ ezk_event *ezk_internal_update_evqueue(ezk_win_id id, ezk_u32 *eq_size) {
 
   if(win->quit_requested) {
       ev_queue = realloc(ev_queue, sizeof(ezk_event) * (ev_index + 1));
-      ev_queue[ev_index] = (ezk_event){EZK_EVENT_CLOSE_REQUESTED};
+      ev_queue[ev_index] = (ezk_event){EZK_EVENT_CLOSEREQUESTED};
       ev_index++;
 
       win->quit_requested = false;

@@ -93,7 +93,7 @@ static ezk_bflag8 get_state_flags(ezk_x11_window *win) {
   xcb_get_property_cookie_t cookie = xcb_get_property(win->display, 0, 
       win->handle, win->NET_WM_STATE, XCB_GET_PROPERTY_TYPE_ANY, 0, 1024);
 
-  // error checking!!
+  // !! error checking !!
   xcb_get_property_reply_t* reply = xcb_get_property_reply(win->display, cookie, NULL);
   if (!reply) {
     return false;
@@ -110,7 +110,8 @@ static ezk_bflag8 get_state_flags(ezk_x11_window *win) {
       xcb_atom_t atom = atoms[i];
       if (atom == win->NET_WM_STATE_FS) {
         ezk_bflag8_set(&flags,EZK_WINDOW_FS, true);
-      } else if (atom == win->NET_WM_STATE_MAX_V || atom == win->NET_WM_STATE_MAX_H) {
+      } else if (!win->borderless &&
+          (atom == win->NET_WM_STATE_MAX_V || atom == win->NET_WM_STATE_MAX_H)) {
         // gonna assume just one of these means we are maximised
         ezk_bflag8_set(&flags,EZK_WINDOW_FS,true);
       } else if (atom == win->NET_WM_STATE_HIDDEN) {
@@ -125,6 +126,7 @@ static ezk_bflag8 get_state_flags(ezk_x11_window *win) {
   ezk_bflag8_set(&flags, EZK_WINDOW_BORDERLESS, win->borderless);
 
   free(reply);
+  
   return flags;
 }
 
@@ -217,18 +219,21 @@ static void send_state_message(ezk_x11_window *win, xcb_atom_t atom1, xcb_atom_t
   xcb_client_message_event_t cme;
   memset(&cme, 0, sizeof(xcb_client_message_event_t));
 
+  if(atom1 == win->NET_WM_STATE_FS) {
+  }
+
   cme.response_type = XCB_CLIENT_MESSAGE;
   cme.window = win->handle;
   cme.format = 32;
   cme.type = win->NET_WM_STATE;
   
-  cme.data.data32[0] = val;
+  cme.data.data32[0] = val ? 1 : 0;
   cme.data.data32[1] = atom1;
   cme.data.data32[2] = atom2;
   cme.data.data32[3] = 1;
   cme.data.data32[4] = 0;
   
-  xcb_send_event(win->display,0,win->handle,
+  xcb_send_event(win->display,0,win->parent, // root window, not our window
       XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
       (const char*)&cme);
 }
@@ -242,11 +247,11 @@ void ezk_internal_update_state_flags(ezk_win_id id, ezk_bflag8 state_flags) {
 
   // disable borderless if it isnt active
   send_state_message(win, win->NET_WM_STATE_FS, 0, 
-      borderless ? ezk_bflag8_get(state_flags, EZK_WINDOW_FS) : 0);
+      borderless && ezk_bflag8_get(state_flags, EZK_WINDOW_FS));
   
   // disable bordered if borderless is active
   send_state_message(win, win->NET_WM_STATE_MAX_H, win->NET_WM_STATE_MAX_V, 
-      borderless ? 0 : ezk_bflag8_get(state_flags, EZK_WINDOW_FS));
+      borderless && !ezk_bflag8_get(state_flags, EZK_WINDOW_FS));
  
   // set if window is minimized
   send_state_message(win, win->NET_WM_STATE_HIDDEN, 0,
@@ -386,7 +391,7 @@ ezk_event *ezk_internal_update_evqueue(ezk_win_id id, ezk_u32 *eq_size) {
       capacity = capacity * 2;
       ev_queue = realloc(ev_queue, capacity * sizeof(ezk_event));
     }
-    ev_queue[*eq_size] = ev;
+    ev_queue[*eq_size-1] = ev;
   }
 
   return ev_queue;

@@ -7,7 +7,7 @@ PREFIX = ezk
 
 CC = gcc
 AR = ar
-CFLAGS ?= -Wall -Wextra -O2 -MMD -MP -g -fPIC
+CFLAGS ?= -Wall -Wextra -Wpedantic -O2 -MMD -MP -g -fPIC
 LDFLAGS = -lm
 
 ifndef OS
@@ -61,6 +61,9 @@ tests: $(TST_BIN)
 clean:
 	@echo $(OBJ)
 	rm -rf $(BUILD) $(BIN) $(LIB)
+
+window: tests
+	./bin/window_test
 
 .PHONY: all clean tests dirs
 -include $(shell find $(BIN) -name '*.d' 2>/dev/null)

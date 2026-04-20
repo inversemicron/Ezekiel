@@ -20,7 +20,6 @@ void on_event(ezk_win_id id, ezk_event ev) {
           ezk_window_flip_minimised(id);
           break;
         case EZK_KEY_FOUR:
-          printf("%b\n", ezk_window_get_ontop(id));
           ezk_window_set_ontop(id, !ezk_window_get_ontop(id));
           break;
         case EZK_KEY_ARROWUP:
@@ -39,6 +38,7 @@ void on_event(ezk_win_id id, ezk_event ev) {
           ezk_window_request_close(id);
           break;
         default:
+          break;
       }
       break;
     case EZK_EVENT_CLOSEREQUESTED:

@@ -1,3 +1,6 @@
+#ifndef EZK_KEYCODE_INCL
+#define EZK_KEYCODE_INCL
+
 // keycodes for ezekiel
 // these need a way to implement mappings, for example
 // the @ sign is SHIFT+2 on US keyboards, but SHIFT+' on UK keyboards 
@@ -6,18 +9,19 @@
 // Hangul, Russian, InScript, Nordic languages, Turkish Q & F, potentially braille 
 // input, and just other more ergonomic layouts. 
 
-#include "ezk_api.h"
 #include "ezk_primitives.h"
+#include "ezk_platform.h"
+#include "ezk_api.h"
 
 typedef enum {
-EZK_MOD_SHIFT    = 1 << 0,
-EZK_MOD_ALTGR    = 1 << 1,
-EZK_MOD_CTRL     = 1 << 2,
-EZK_MOD_ALT      = 1 << 3,
-EZK_MOD_FN       = 1 << 4,
-EZK_MOD_COMMAND  = 1 << 5,
-EZK_MOD_OPTION   = 1 << 6,
-EZK_MODKEY_COUNT = 7
+    EZK_MOD_SHIFT = 1 << 0,
+    EZK_MOD_ALTGR = 1 << 1,
+    EZK_MOD_CTRL = 1 << 2,
+    EZK_MOD_ALT = 1 << 3,
+    EZK_MOD_FN = 1 << 4,
+    EZK_MOD_COMMAND = 1 << 5,
+    EZK_MOD_OPTION = 1 << 6,
+    EZK_MODKEY_COUNT = 7
 } ezk_mod_key;
 
 #define shift_down(mod) mod & 1
@@ -29,7 +33,7 @@ EZK_MODKEY_COUNT = 7
 #define option_down(mod) (mod & 64) >> 6
 
 
-#define EZK_KEYS_XMACRO \
+#define _EZK_KEYS_XMACRO \
   EZK_KEY_XM(SPACE,                "Space") \
   EZK_KEY_XM(HASH,                     "#") \
   EZK_KEY_XM(SINGLEQUOTE,              "'") \
@@ -155,13 +159,15 @@ EZK_MODKEY_COUNT = 7
   EZK_KEY_XM(F34,                    "F34") \
   EZK_KEY_XM(F35,                    "F35")
 
-#define EZK_KEY_XM(key,name) EZK_KEY_##key,
+#define EZK_KEY_XM(key, name) EZK_KEY_##key,
 typedef enum {
-  EZK_KEY_NULL,
-  EZK_KEYS_XMACRO
-  EZK_KEY_COUNT
+    EZK_KEY_NULL,
+    _EZK_KEYS_XMACRO
+    EZK_KEY_COUNT
 } ezk_key;
 #undef EZK_KEY_XM
+
+EZKAPI const char* ezk_key_get_key_name(ezk_key ckey);
 
 // ckeys - complex keys - are keys that require a modifier to type
 // arg 1 is the base key, 
@@ -171,7 +177,7 @@ typedef enum {
 // arg 5 is whether a key is made when altgr is pressed down
 // args 6 & 7 are the type and name of the key 
 
-#define EZK_CKEYS_XMACRO \
+#define _EZK_CKEYS_XMACRO \
   EZK_CKEY_XM(SPACE,          0,0,0,                             0,0,0) \
   EZK_CKEY_XM(HASH,           1,TILDE,"`",                       1,GRAVEACCENT,"GRAVE ACCENT") \
   EZK_CKEY_XM(SINGLEQUOTE,    1,AMPERSAT,"@",                    1,CIRCUMFLEX,"CIRCUMFLEX") /*UK layout*/ \
@@ -300,166 +306,30 @@ typedef enum {
 // couple helper macros so nothing is added for keys where altgr does nothing
 #define EZK_ACTIVE_1(name) EZK_CKEY_##name, // has an altgr function
 #define EZK_ACTIVE_0(name) // has no altgr function
-#define EZK_ACTIVE_KEY(name,active) EZK_ACTIVE_##active(name)
+#define EZK_ACTIVE_KEY(name, active) EZK_ACTIVE_##active(name)
 
 // complex keys enum
 
-#define EZK_CKEY_XM(base,shift,s_type,s_name,altgr,a_type,a_name) EZK_ACTIVE_KEY(s_type,shift) EZK_ACTIVE_KEY(a_type,altgr) 
+#define EZK_CKEY_XM(base, shift, s_type, s_name, altgr, a_type, a_name) EZK_ACTIVE_KEY(s_type,shift) EZK_ACTIVE_KEY(a_type,altgr)
 typedef enum {
-  EZK_CKEY_NULL,
-  EZK_CKEYS_XMACRO
-  EZK_CKEY_COUNT
+    EZK_CKEY_NULL,
+    _EZK_CKEYS_XMACRO
+    EZK_CKEY_COUNT
 } ezk_ckey;
 
-#undef EZK_ACTIVE_1
-#define EZK_ACTIVE_1(name) #name,
-
 #undef EZK_CKEY_XM
-
-#define EZK_CKEY_XM(base,shift,s_type,s_name,altgr,a_type,a_name) {EZK_ACTIVE_KEY(s_type,shift), EZK_ACTIVE_KEY(a_type,altgr)},
-
-#undef EZK_ACTIVE_0
 #undef EZK_ACTIVE_1
-
-#define EZK_ACTIVE_1(name) EZK_CKEY_##name
-#define EZK_ACTIVE_0(name) 0 // set it explicitly to 0 to stop the lookup table being jagged
-
-// complex keys lookup table
-
-// first is shift key, then altgr if it exists
-static const ezk_ckey ckey_lookup[EZK_KEY_COUNT + 1][2] = {
-  {0,0}, // for null key
-  EZK_CKEYS_XMACRO
-};
-
+#undef EZK_ACTIVE_0
 #undef EZK_ACTIVE_KEY
-#undef EZK_ACTIVE_1
-#undef EZK_ACTIVE_0
+
+EZKAPI const char* ezk_key_get_ckey_name(ezk_ckey ckey);
 
 EZKAPI ezk_ckey ezk_get_ckey_from_base(ezk_key base, ezk_mod_key mods);
 
-// Note these are hardware values, so a layout can be applied later
-
-#define EZK_X11_KC_LOOKUP \
-  EZK_X11_LT_XM(SPACE,          65) \
-  EZK_X11_LT_XM(HASH,           51) \
-  EZK_X11_LT_XM(SINGLEQUOTE,    48) \
-  EZK_X11_LT_XM(COMMA,          59) \
-  EZK_X11_LT_XM(HYPHEN,         20) \
-  EZK_X11_LT_XM(PERIOD,         60) \
-  EZK_X11_LT_XM(SLASH,          61) \
-  EZK_X11_LT_XM(ZERO,           19) \
-  EZK_X11_LT_XM(ONE,            10) \
-  EZK_X11_LT_XM(TWO,            11) \
-  EZK_X11_LT_XM(THREE,          12) \
-  EZK_X11_LT_XM(FOUR,           13) \
-  EZK_X11_LT_XM(FIVE,           14) \
-  EZK_X11_LT_XM(SIX,            15) \
-  EZK_X11_LT_XM(SEVEN,          16) \
-  EZK_X11_LT_XM(EIGHT,          17) \
-  EZK_X11_LT_XM(NINE,           18) \
-  EZK_X11_LT_XM(SEMICOLON,      47) \
-  EZK_X11_LT_XM(EQUALS,         21) \
-  EZK_X11_LT_XM(OPENBRACKETSQ,  34) \
-  EZK_X11_LT_XM(BACKSLASH,      94) \
-  EZK_X11_LT_XM(CLOSEBRACKETSQ, 35) \
-  EZK_X11_LT_XM(GRAVE,          49) \
-  EZK_X11_LT_XM(a,              38) \
-  EZK_X11_LT_XM(b,              56) \
-  EZK_X11_LT_XM(c,              54) \
-  EZK_X11_LT_XM(d,              40) \
-  EZK_X11_LT_XM(e,              26) \
-  EZK_X11_LT_XM(f,              41) \
-  EZK_X11_LT_XM(g,              42) \
-  EZK_X11_LT_XM(h,              43) \
-  EZK_X11_LT_XM(i,              31) \
-  EZK_X11_LT_XM(j,              44) \
-  EZK_X11_LT_XM(k,              45) \
-  EZK_X11_LT_XM(l,              46) \
-  EZK_X11_LT_XM(m,              58) \
-  EZK_X11_LT_XM(n,              57) \
-  EZK_X11_LT_XM(o,              32) \
-  EZK_X11_LT_XM(p,              33) \
-  EZK_X11_LT_XM(q,              24) \
-  EZK_X11_LT_XM(r,              27) \
-  EZK_X11_LT_XM(s,              39) \
-  EZK_X11_LT_XM(t,              28) \
-  EZK_X11_LT_XM(u,              30) \
-  EZK_X11_LT_XM(v,              55) \
-  EZK_X11_LT_XM(w,              25) \
-  EZK_X11_LT_XM(x,              53) \
-  EZK_X11_LT_XM(y,              29) \
-  EZK_X11_LT_XM(z,              52) \
-  EZK_X11_LT_XM(DELETE,        119) \
-  EZK_X11_LT_XM(SHIFT,          50) \
-  EZK_X11_LT_XM(CONTROL,        37) \
-  EZK_X11_LT_XM(ALT,            64) \
-  EZK_X11_LT_XM(ALTGR,         108) \
-  EZK_X11_LT_XM(ESCAPE,          9) \
-  EZK_X11_LT_XM(PRINTSCREEN,     0) \
-  EZK_X11_LT_XM(CAPSLOCK,       66) \
-  EZK_X11_LT_XM(TAB,            23) \
-  EZK_X11_LT_XM(NUMLOCK,        77) \
-  EZK_X11_LT_XM(SCROLLLOCK,     78) \
-  EZK_X11_LT_XM(PAGEUP,        112) \
-  EZK_X11_LT_XM(PAGEDOWN,      117) \
-  EZK_X11_LT_XM(INSERT,        118) \
-  EZK_X11_LT_XM(HOME,          110) \
-  EZK_X11_LT_XM(END,           115) \
-  EZK_X11_LT_XM(ENTER,          36) \
-  EZK_X11_LT_XM(BACKSPACE,      22) \
-  EZK_X11_LT_XM(PAUSEBREAK,    127) \
-  EZK_X11_LT_XM(MENU,          135) \
-  EZK_X11_LT_XM(NUMPAD0,        90) \
-  EZK_X11_LT_XM(NUMPAD1,        87) \
-  EZK_X11_LT_XM(NUMPAD2,        88) \
-  EZK_X11_LT_XM(NUMPAD3,        89) \
-  EZK_X11_LT_XM(NUMPAD4,        83) \
-  EZK_X11_LT_XM(NUMPAD5,        84) \
-  EZK_X11_LT_XM(NUMPAD6,        85) \
-  EZK_X11_LT_XM(NUMPAD7,        79) \
-  EZK_X11_LT_XM(NUMPAD8,        80) \
-  EZK_X11_LT_XM(NUMPAD9,        81) \
-  EZK_X11_LT_XM(NUMPADPOINT,    91) \
-  EZK_X11_LT_XM(NUMPADDIVIDE,  106) \
-  EZK_X11_LT_XM(NUMPADMULTIPLY, 63) \
-  EZK_X11_LT_XM(NUMPADSUBTRACT, 82) \
-  EZK_X11_LT_XM(NUMPADPLUS,     86) \
-  EZK_X11_LT_XM(NUMPADENTER,   104) \
-  EZK_X11_LT_XM(ARROWUP,       111) \
-  EZK_X11_LT_XM(ARROWDOWN,     116) \
-  EZK_X11_LT_XM(ARROWLEFT,     113) \
-  EZK_X11_LT_XM(ARROWRIGHT,    114) \
-  EZK_X11_LT_XM(F1,             67) \
-  EZK_X11_LT_XM(F2,             68) \
-  EZK_X11_LT_XM(F3,             69) \
-  EZK_X11_LT_XM(F4,             70) \
-  EZK_X11_LT_XM(F5,             71) \
-  EZK_X11_LT_XM(F6,             72) \
-  EZK_X11_LT_XM(F7,             73) \
-  EZK_X11_LT_XM(F8,             74) \
-  EZK_X11_LT_XM(F9,             75) \
-  EZK_X11_LT_XM(F10,            76) \
-  EZK_X11_LT_XM(F11,            95) \
-  EZK_X11_LT_XM(F12,            96) 
-
-#define EZK_X11_KEY_LT_LENGTH 136 // needs to be updated if more keys are added
-
-#define EZK_X11_LT_XM(k,i) [i] = EZK_KEY_##k,
-
-static const ezk_key x11_ezk_lt[EZK_X11_KEY_LT_LENGTH] = {
-  EZK_X11_KC_LOOKUP
-};
-
-#undef EZK_X11_LT_XM
-#define EZK_X11_LT_XM(k,i) [EZK_KEY_##k] = i,
-
-static const ezk_key ezk_x11_lt[EZK_X11_KEY_LT_LENGTH] = {
-  EZK_X11_KC_LOOKUP
-};
-
-#undef EZK_X11_LT_XM
-
 EZKAPI ezk_key ezk_key_ezk_to_x11(int keycode);
-
 EZKAPI ezk_key ezk_key_x11_to_ezk(int keycode);
+
+EZKAPI ezk_key ezk_key_ezk_to_win32(int keycode);
+EZKAPI ezk_key ezk_key_win32_to_ezk(int keycode);
+  
+#endif
